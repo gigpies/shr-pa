@@ -1,19 +1,31 @@
 name: Rust checks
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 env:
   CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 1
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     steps:
       # Checkout v7 runs on Node 24 supplied by the GitHub-hosted runner.
       # This Rust project has no application Node runtime dependency.
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Check publication boundaries
         run: python3 scripts/check_publication.py
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -21,9 +33,27 @@ jobs:
       - name: Install pinned Rust
         run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
       - run: python3 scripts/check-docs.py
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked --all-targets
       - run: cargo build --locked --release
       - run: python3 scripts/check-terminal.py target/release/shr-pa
       - run: python3 scripts/check-live-controls.py target/release/shr-pa
+  automation:
+    uses: gigpies/.github/.github/workflows/quality.yml@80d76c2b710d90e55f4f95ecea192c514f471fe6
+  gate:
+    name: Required CI
+    if: ${{ always() }}
+    needs: [check, automation]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require all build and contributor checks
+        env:
+          BUILD_RESULT: ${{ needs.check.result }}
+          AUTOMATION_RESULT: ${{ needs.automation.result }}
+        run: test "$BUILD_RESULT" = success && test "$AUTOMATION_RESULT" = success

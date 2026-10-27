@@ -1,5 +1,8 @@
 # Contributing
 
+[Shared contributor workflow](https://github.com/gigpies/.github/blob/main/CONTRIBUTING.md)
+· [Security reporting](https://github.com/gigpies/.github/blob/main/SECURITY.md)
+
 The 0.2 alpha baseline includes offline DSP, explicit ALSA streaming, live controls,
 a local preset library and working recovery. Read [status](docs/STATUS.md) and the
 [roadmap](docs/ROADMAP.md) before extending it. Keep proposed features distinct

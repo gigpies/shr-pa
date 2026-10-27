@@ -2,7 +2,7 @@
 
 # SHR PA
 
-**PA processing for GigPies, with a standalone six-output editor.** Crossovers,
+**PA processing for GigPies, with a standalone terminal application (TUI).** Crossovers,
 parametric and graphic EQ, compression, limiters, delay, polarity and output mutes.
 
 ![Standalone offline editor](docs/assets/terminal.svg)
@@ -30,3 +30,5 @@ a preset. The guide covers controls, saving, output assignments and recovery.
 There is no need to read the DSP or integration specification first.
 
 [Current limits](docs/STATUS.md) · [Release notes](CHANGELOG.md) · [MIT license](LICENSE)
+
+[Contribute](https://github.com/gigpies/.github/blob/main/CONTRIBUTING.md) · [Report a bug](https://github.com/gigpies/shr-pa/issues/new/choose)
