@@ -21,7 +21,7 @@ settings and whether the signal chain was physically verified.
 
 ## Documentation and releases
 
-Use [DSP.md](docs/DSP.md) for current contracts, [RUNNING.md](docs/RUNNING.md)
+Use [DSP.md](docs/DSP.md) for current contracts, [RUNNING.md](docs/reference/RUNNING.md)
 for operations, and the [function map](docs/DRIVERACK_MAP.md) for requirements.
 Keep verification records dated; add a supersession note instead of rewriting
 old measurements as new evidence. Link new evidence from the documentation index.

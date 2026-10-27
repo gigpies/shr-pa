@@ -20,7 +20,7 @@ no new remote CI result is claimed.
   Explicit independent mode uses direct per-pair HP→LP without automatic phase
   correction. Mode, both edge settings and inactive-pair status are displayed.
   Split shortcuts reject in independent mode. Mode resets and layout behavior
-  are documented in [RUNNING](../RUNNING.md#crossover-controls).
+  are documented in [RUNNING](../reference/RUNNING.md#crossover-controls).
 - Matched LR12/LR36 require one branch inverted; LR24/LR48 use equal polarity.
   Independent three-way and arbitrary edge/polarity combinations have no flat-sum
   guarantee. See the complete [phase contract](../DSP.md#independent-edges-d08).

@@ -5,7 +5,7 @@
 > for subsequent commits and the [0.2 alpha record](0007-0.2-alpha.md) for release checks.
 
 Implementation working tree based on `488c682`, Rust 1.97.1, native aarch64 release
-build. [Run commands](../RUNNING.md) and [DSP contract](../DSP.md) describe the
+build. [Run commands](../reference/RUNNING.md) and [DSP contract](../DSP.md) describe the
 actual scope. Historical scaffold/planning records remain unchanged.
 
 ## Normal validation

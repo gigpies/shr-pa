@@ -28,7 +28,7 @@ GitHub Actions result belongs to the baseline; no new remote CI result is claime
   retain unrelated settings. Histories survive save, recall and working recovery.
 - Compact 40×13 library view and command prompt with selection, active baseline,
   modified and recovery status; Escape cancels commands, Ctrl+C exits, and terminal
-  attributes are restored. See [commands](../RUNNING.md) and
+  attributes are restored. See [commands](../reference/RUNNING.md) and
   [precise EQ/persistence semantics](../DSP.md#library-and-working-state).
 
 ## Working during live streaming

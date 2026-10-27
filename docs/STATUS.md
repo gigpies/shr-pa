@@ -190,7 +190,7 @@ UMC1820 is a **future target**, not a development gate. Its eventual channel and
 physical acceptance work remains pending. General matrices, advanced routing,
 eight-point positional RTA and the later nine-channel layout remain [future](FUTURE.md).
 
-[Run commands and controls](RUNNING.md) · [Validation](VALIDATION.md)
+[Run commands and controls](reference/RUNNING.md) · [Validation](VALIDATION.md)
 
 ## GigPies integration planning — 2026-10-04
 

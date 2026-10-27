@@ -137,6 +137,6 @@ claim mock, planned or incomplete behavior is a finished engine.
   restoration/recovery and explicit software-null live controls passed. Fresh
   version, six-channel float WAV, 40×13 snapshot and source-preserving v2 migration
   checks passed. Commands are in [VALIDATION.md](../../VALIDATION.md),
-  [RUNNING.md](../../RUNNING.md) and the E08 corpus. Historical media, exhaustive/long
+  [RUNNING.md](../../reference/RUNNING.md) and the E08 corpus. Historical media, exhaustive/long
   research and hardware tests were intentionally skipped. Final receiving review
   and publication belong to the coordinator; no source commit/push by the worker.

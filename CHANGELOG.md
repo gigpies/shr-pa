@@ -34,7 +34,7 @@ This release packages the implemented baseline; it does not complete the PA2 pla
   accepts processing v1/v2 and envelope v1, preserving sources and EQ histories.
   Application version `0.2.0-alpha.1` is independent of these schema numbers.
 - Audited operating instructions, backup/recovery guidance, current signal-flow
-  artwork and indexed historical evidence. See [migration](docs/RUNNING.md#existing-presets-and-library-migration)
+  artwork and indexed historical evidence. See [migration](docs/reference/RUNNING.md#existing-presets-and-library-migration)
   before opening older saved state.
 
 Validation is recorded in [0007](docs/verification/0007-0.2-alpha.md). Hardware

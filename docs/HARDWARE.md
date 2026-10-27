@@ -2,7 +2,7 @@
 
 The UMC1820 is a future target, **not a prerequisite**. Develop and run the logical
 2×6 engine on any supported channel capability; select physical output mappings
-explicitly and retain unmapped outputs for offline work. See [running](RUNNING.md).
+explicitly and retain unmapped outputs for offline work. See [running](reference/RUNNING.md).
 
 ## Compatibility conclusion
 

@@ -311,7 +311,7 @@ v1/v2 standalone processing or v1 slot/working envelopes. It converts both saved
 and working processing snapshots, preserves EQ history and metadata, validates
 the entire result and publishes to a new destination without replacing existing
 files (including symlinks). Sources remain untouched. Legacy recovery is blocked
-until explicitly migrated; see the [migration procedure](RUNNING.md#existing-presets-and-library-migration). To put an existing JSON
+until explicitly migrated; see the [migration procedure](reference/RUNNING.md#existing-presets-and-library-migration). To put an existing JSON
 preset in the library, import with `l`, select a user slot and save. The import
 initializes manual EQ history from the imported gains. Export writes effective
 processing only; full restore history stays in library/working envelopes.

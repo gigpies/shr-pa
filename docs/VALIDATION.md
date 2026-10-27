@@ -129,7 +129,7 @@ running it. Its synthetic tests cover force-added private paths, staged secrets,
 renamed media, symlinks and leaks removed by a later outgoing commit.
 
 Before publication, run all normal commands above, check `--version`, and exercise
-[offline and software-null examples](RUNNING.md) with fresh temporary paths.
+[offline and software-null examples](reference/RUNNING.md) with fresh temporary paths.
 Verify six-channel WAV metadata, source-preserving migration and snapshot size.
 Review changed artwork and run its generator when the diagram or snapshot changes.
 The offline documentation checker validates local links/anchors, SVG XML and

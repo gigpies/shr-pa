@@ -6,7 +6,7 @@ edition = "2024"
 rust-version = "1.97.1"
 license = "MIT"
 publish = false
-repository = "https://github.com/PaolaShultz/shr-pa"
+repository = "https://github.com/gigpies/shr-pa"
 description = "Highly experimental Raspberry Pi PA management system"
 
 [lib]

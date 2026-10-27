@@ -1,123 +1,32 @@
-![SHR PA — signal paths, precisely connected](docs/assets/banner.svg)
+![SHR PA](docs/assets/banner.svg)
 
 # SHR PA
 
-**0.2.0-alpha.1 (“0.2 alpha”) — experimental Rust PA management for Raspberry Pi 5 and Linux.**
+**PA processing for GigPies, with a standalone six-output editor.** Crossovers,
+parametric and graphic EQ, compression, limiters, delay, polarity and output mutes.
 
-[Release notes](CHANGELOG.md) · [Documentation index](docs/README.md)
+![Standalone offline editor](docs/assets/terminal.svg)
 
-[![Rust checks](https://github.com/PaolaShultz/shr-pa/actions/workflows/ci.yml/badge.svg)](https://github.com/PaolaShultz/shr-pa/actions/workflows/ci.yml)
+[**Use the processor**](docs/RUNNING.md) · [**GigPies guide**](https://github.com/gigpies/gigpies/blob/main/docs/README.md) · [Engineering](docs/ENGINEERING.md)
 
-[Run commands](docs/RUNNING.md) · [Status](docs/STATUS.md) · [DSP behavior](docs/DSP.md) · [Roadmap](docs/ROADMAP.md) · [Hardware](docs/HARDWARE.md)
+## Choose your setup
 
-SHR PA provides a hardware-independent **configurable PA graph** and the original
-standalone **2-input × 6-output** processor:
-LR24 full-range/two-way/phase-compensated three-way layouts, mono selection/bass
-summing, independent BW6–48/LR12–48 crossover edges, 31-band GEQ, bell/shelf PEQ,
-stereo-linked compression, delays,
-gain/polarity, ramped mutes, linked peak limiters and meters.
-Six-channel offline WAV rendering works without an audio interface, including
-seeded white and pink noise sources with explicit −60…0 dBFS generator levels. Direct ALSA
-runs selected logical outputs on the physical channels available today, with no
-implicit stereo mixdown. Explicit live generators also support `(`/`)` level edits
-with a 5 ms ramp. `~` turns the selected generator off/on, crossfading to/from
-mapped capture without restarting its sequence.
+- **In GigPies:** configurable PA inputs and outputs, controlled from Desk.
+- **Standalone:** two inputs and six logical outputs, with full-range, two-way
+  and three-way layouts in a compact 40×13 terminal.
+- **Offline:** edit presets and render six-channel WAV previews without hardware.
 
-The 2026-09-29 AudioBox USB 96 trials exercised the stereo transport path. **UMC1820 is a future
-target, not a development prerequisite.** A later [GigPies check](docs/verification/0014-integration-checkpoint.md)
-verified a bounded left-output/input-1 electrical return; the right route remains
-unresolved. Isolated converter latency and speaker protection remain unmeasured.
+The standalone editor starts offline. Live operation uses explicitly selected
+ALSA devices and starts muted. Presets are generic starting points, not speaker tunings.
 
-## Build and run
+**Experimental, 0.2 alpha.** DSP and software integration work; physical speaker
+protection and acoustic alignment remain unqualified. Offline measurement can
+propose delay/polarity changes; complete automatic acoustic setup is unfinished.
 
-Requires Linux, Rust **1.97.1** via rustup, a C linker, `pkg-config` and ALSA headers
-(`libasound2-dev` on Debian/Ubuntu).
+## First session
 
-```sh
-cargo build --release --locked
-./target/release/shr-pa --version
-# Use a new session directory: init replaces an existing destination.
-mkdir -p artifacts
-SESSION=$(mktemp -d "$PWD/artifacts/session-XXXXXX")
-./target/release/shr-pa init "$SESSION/preset.json"
-./target/release/shr-pa check "$SESSION/preset.json"
-./target/release/shr-pa render "$SESSION/preset.json" sweep "$SESSION/six-outputs.wav" 5 --unmute
-(cd "$SESSION" && ../../target/release/shr-pa)
-```
+[Build and open a fresh session](docs/RUNNING.md#start-offline), then load or edit
+a preset. The guide covers controls, saving, output assignments and recovery.
+There is no need to read the DSP or integration specification first.
 
-The default terminal is an offline preset editor with real DSP previews. It opens
-no audio device. A fresh session starts with the default three-way preset; press
-`l` to import an existing `preset.json`. Use Tab/arrows and footer mouse buttons for pages; `q` exits.
-`s`/`l` save/load `preset.json`; `r` renders a preview; `1`…`6` toggle logical mutes.
-The compact layout is **40×13**. Terminal state is restored on handled exits.
-
-![Offline engine editor](docs/assets/terminal.svg)
-
-## Explicit live operation
-
-```sh
-./target/release/shr-pa devices
-# Substitute the selected ALSA card ID. Starts muted; u unmutes, q stops.
-./target/release/shr-pa live "$SESSION/preset.json" \
-  hw:CARD=CARD_ID,DEV=0 hw:CARD=CARD_ID,DEV=0 \
-  2 2 0,1 0,1,-,-,-,- 10 --ui
-```
-
-Maps are zero based. The six entries select physical outputs for
-H-L/H-R/M-L/M-R/L-L/L-R; `-` leaves a logical output unmapped. All six DSP outputs
-still run and remain renderable offline. Invalid physical mappings fail locally.
-Live controls use prepared transactions and bounded transitions for gain, polarity,
-EQ, dynamics and delays. Tab opens module controls; `v` selects a module, `n` a
-parameter and `x`/`X` edits it. Layout/recall uses mute/reconfigure/resume.
-Presets use schema v3; `migrate OLD NEW` explicitly converts v1/v2 files and old
-library/working envelopes, retaining source files and EQ history. [Full instructions](docs/RUNNING.md).
-
-## Embed the PA engine
-
-The additive [C-PA v2 contract](docs/EMBEDDING_V2.md) supports descriptor-driven
-program inputs, weighted mono sums, independently processed outputs and real
-stereo three/four-way LR24 crossovers. Prepared replacements use persistent
-mute/commit/rearm with off-thread retirement. Reference 2×6, 2×8 and 4×8 graphs
-are software-validated; module ports do not imply physical channel qualification.
-
-The optional [live EQ extension](docs/LIVE_EQ_ABI.md) changes two selected program
-input EQ banks together while processing. It crossfades their EQ outputs before
-the continuing dynamics, routing and protection stages, with explicit preparation,
-generation checks and retirement. It neither replaces the graph nor rearms outputs.
-The integrating host owns main-bus selection and operator authority. This path has
-software acceptance; listening and physical timing remain unverified.
-
-### Original fixed embedding
-
-The release build also produces `libshr_pa.so`. Its [versioned C interface](docs/EMBEDDING.md)
-accepts stereo f64 input and returns six logical f64 outputs using the existing
-full-range engine, startup ramp and sample limiter. The host owns device I/O.
-Standalone operation remains available; physical integration evidence belongs
-to the integrating host.
-
-## Remaining scope
-
-The [complete PA2 function inventory](docs/DRIVERACK_MAP.md) still tracks automatic EQ
-restore sources, extended limiter modes, subharmonic synthesis, feedback suppression,
-measurement/RTA, AutoEQ/setup workflows, speaker profiles, remote controls and maintenance.
-The local library, working recovery, manual EQ restore and crossover controls are
-[implemented](docs/STATUS.md).
-The full PA2 function plan remains incomplete.
-There is no claim of proprietary dbx algorithm equivalence.
-
-The [offline measurement owner](docs/MEASUREMENT_V1.md) provides standalone
-reference/mic transfer, arrival/coherence and conservative delay/polarity review
-proposals. It never applies settings. The broader [phase/delay alignment workflow](docs/PHASE_ALIGNMENT.md)
-still needs synchronized capture, integration and physical acoustic acceptance.
-Fixed and configurable embedding interfaces remain unchanged.
-
-The weighted matrix foundation is implemented in v2. Arbitrary graph editing,
-eight-point positional RTA and the later nine-channel arrangement remain
-[future work](docs/FUTURE.md).
-
-[Validation and test policy](docs/VALIDATION.md) · [Contributing](CONTRIBUTING.md)
-
-Built independently of the related SHR projects, including
-[SHR DAW](https://github.com/PaolaShultz/shr-daw).
-MIT licensed. Documentation artwork is original. Vendor marks belong to their
-owners; SHR PA is an independent project.
+[Current limits](docs/STATUS.md) · [Release notes](CHANGELOG.md) · [MIT license](LICENSE)

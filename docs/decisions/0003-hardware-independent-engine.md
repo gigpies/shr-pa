@@ -24,5 +24,5 @@ are edited during streaming. Faults terminate the hardware session; an explicit
 restart renegotiates and starts muted. More advanced recovery/transitions remain
 future implementation work rather than unsafe partial live edits.
 
-See [DSP behavior](../DSP.md), [commands](../RUNNING.md) and
+See [DSP behavior](../DSP.md), [commands](../reference/RUNNING.md) and
 [evidence](../verification/0003-engine.md).

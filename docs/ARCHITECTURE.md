@@ -12,7 +12,7 @@ measurement remain unqualified or unavailable as documented.
 
 
 **Implemented 0.2 alpha architecture, with planned extensions identified below.**
-The actual processing/transport contracts are in [DSP](DSP.md) and [running](RUNNING.md).
+The actual processing/transport contracts are in [DSP](DSP.md) and [running](reference/RUNNING.md).
 The main diagram shows the implemented path. Feedback, bass synthesis and
 measurement remain planned extensions.
 GEQ, bell/shelf PEQ, compression and independent BW/LR crossover edges are
