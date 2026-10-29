@@ -114,7 +114,7 @@ with tempfile.TemporaryDirectory(prefix="shr-pa-recovery-") as folder:
             os.close(slave)
     session([(b":select U75\r",b"Selected only"),
              (b":save Recovery base\r",b"save complete"),
-             (b"Pge",b"EQ +1dB"),
+             (b"Pge",b"EQ +1\x1b"),
              (b":flat H\r",b"flat complete")])
     state = Path(folder) / '.shr-pa' / 'working.json'
     saved = Path(folder) / '.shr-pa' / 'U75.json'

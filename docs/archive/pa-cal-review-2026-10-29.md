@@ -39,3 +39,16 @@ Published CI f6be5ae failed only the sibling-relative links in the implementatio
 plan and prior acceptance record; both now use repository URLs. The correction
 is local and uncommitted. Physical procedure: [phase alignment](../PHASE_ALIGNMENT.md#physical-qualification-after-imported-sweep-review).
 No null PCM, physical, playback, service or load checks were run.
+
+## Authorized publication follow-up
+
+The user subsequently authorized commit/push and remote CI verification. Run
+[40919704329](https://github.com/gigpies/shr-pa/actions/runs/40919704329) at
+2c8ddaf passed documentation, Rust tests and release builds on both architectures,
+then exposed an older terminal assertion expecting `EQ +1dB`. The current compact
+screen displays `EQ +1`. The assertion now matches that exact value through the
+next ANSI boundary; persisted EQ-value and recovery assertions remain unchanged.
+`python3 scripts/check-terminal.py target/release/shr-pa` passes all eight offline
+terminal/recovery checks locally. Its temporary working state was automatically
+removed. No PCM opens, playback or host-setting changes were involved. This is a
+test-only correction; the validated production source identity is unchanged.
