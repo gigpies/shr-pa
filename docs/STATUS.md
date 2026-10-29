@@ -1,5 +1,10 @@
 # Current status
 
+[Offline setup](OFFLINE_SETUP.md) adds distance entry, explicit crossover-overlap
+review, bounded output-PEQ proposals and calibration/sweep analysis. These are
+software-only; physical measurement and acoustic acceptance remain unavailable.
+[PA-SETUP](archive/pa-setup-2026-10-29.md) records software validation.
+
 ## Offline measurement owner — 2026-10-08
 
 The [measurement v1 module and standalone JSON CLI](MEASUREMENT_V1.md) now provide
@@ -7,8 +12,8 @@ bounded 48 kHz reference/mic H1 magnitude/phase/coherence, integer arrival evide
 and conservative multi-position delay/polarity review proposals. Actual configurable
 Graph paths are covered by synthetic regressions; no-change, refusal and exact
 base-graph preservation are explicit. Neither analysis nor proposal generation
-applies settings or rearms outputs. Live capture, GigPies/Desk integration and
-physical multi-position acoustic acceptance remain separate work.
+applies settings or rearms outputs. The GigPies GP20 software provider and Desk review are integrated. Physical capture
+and multi-position acoustic acceptance remain separate work.
 
 Software gates passed 104 normal Rust tests (13 measurement regressions),
 warning-denied Clippy, formatting, release build, five Python tests, documentation
@@ -181,7 +186,7 @@ speaker protection remain unmeasured.
 
 PA2 shelf-slope unit compatibility, automatic input-EQ restore sources,
 subharmonic synthesis, feedback suppression,
-RTA/separate mic integration, AutoEQ/setup wizards, limiter bypass/knee modes,
+Physical RTA/mic integration, complete setup wizards, limiter bypass/knee modes,
 speaker/amplifier profiles, lockout/remote/update management, automatic device
 recovery, and physical touchscreen integration. The [full map](DRIVERACK_MAP.md)
 retains these features and acceptance work; partial rows are not marked complete.

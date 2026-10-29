@@ -20,9 +20,9 @@ SHR PA owns the PA module intended for later integration into GigPies. Develop a
 validate PA processing and measurement here while retaining standalone operation.
 Read docs/PHASE_ALIGNMENT.md when continuing measurement, P4/P5 setup or alignment
 work: it records the requested reference/mic phase measurement and delay/polarity
-alignment tasks, acceptance criteria and future GigPies boundary. Measurement integration is
-planned; configurable PA processing already has integrated software acceptance.
-Do not duplicate measurement in GigPies or assume that analyzer exists.
+alignment tasks, acceptance criteria and future GigPies boundary. Measurement integration through GP20 has software acceptance; configurable PA
+processing is also integrated. Inspect the existing analyzer and contracts;
+do not duplicate measurement in GigPies.
 
 ## Validation
 

@@ -7,19 +7,20 @@ bounded sample-pair analyzer and conservative multi-position review proposals.
 It measures actual configurable Graph paths in synthetic tests, preserves exact
 base configuration/protection, and never applies settings. Current v2 outputs have
 independent 0..10 ms delay/polarity; the fixed linked-pair table below is historical.
-Synchronized setup-mic capture, integration, physical combined-response checks and
-acoustic acceptance remain pending. The original task below continues to describe
+GP20 software capture/review integration exists. Synchronized physical setup-mic
+capture, physical combined-response checks and acoustic acceptance remain pending.
+The additive [offline setup](OFFLINE_SETUP.md) contract extends crossover review;
+[PA-SETUP evidence](archive/pa-setup-2026-10-29.md) owns the completed software increment. The original task below continues to describe
 those broader acceptance requirements.
 Recorded on 2026-10-02 from the user's proposal to use a measurement mic and pink
 noise to identify phase problems and correct arrival-time differences with small
-delays. This document adds no implementation or hardware acceptance claim.
+delays. The original proposal below is historical; current software behavior is specified by the linked contracts. It adds no hardware acceptance claim.
 
 Develop and validate this capability here in SHR PA. The user's system is modular:
 GigPies is intended to integrate the finished PA module. Keep the PA DSP, measurement
 and alignment rules owned here rather than creating a second implementation in
 GigPies. SHR PA must remain independently usable. Fixed full-range processing
-now has an [embedding interface](EMBEDDING.md); the measurement integration
-interface and packaging will be defined when that capability is built.
+now has an [embedding interface](EMBEDDING.md); the measurement integration uses the bounded owner executable and GP20 provider contract.
 
 ## Pending work
 
@@ -33,10 +34,12 @@ interface and packaging will be defined when that capability is built.
   Application and physical verification remain separate.
 - [ ] P5: verify combined response across relevant frequencies and several sequential
   microphone positions; preserve settings on cancellation or inconclusive evidence.
-- [ ] Complete the production-DSP regressions and separately authorized physical
-  validation listed below. Record actual supported layouts, latency and limits.
-- [ ] Once the module is ready, define and test the GigPies integration contract
-  without duplicating PA algorithms or starting a competing audio-device owner.
+- [x] Production-DSP offline regressions for crossover correction and independently
+  rendered summation; see PA-SETUP evidence.
+- [ ] Separately authorized physical validation listed below; record supported
+  layouts, latency and limits.
+- [x] GP20 software integration preserves one capture owner and delegates analysis
+  to SHR PA; physical capture remains unavailable.
 
 These extend P4/P5 and manual commissioning; they do not require general matrix
 routing or the deferred eight-microphone system. This is our requested extension,

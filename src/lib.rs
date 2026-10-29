@@ -58,3 +58,8 @@ mod owner_allocation_guard {
 }
 
 pub mod measurement;
+
+pub mod auto_eq;
+pub mod calibration;
+pub mod distance;
+pub mod sweep;

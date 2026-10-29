@@ -17,8 +17,8 @@ remain unqualified; sample limiting is not true-peak or speaker calibration proo
 
 Measurement and delay/polarity alignment have one owning task plan:
 [PHASE_ALIGNMENT](PHASE_ALIGNMENT.md). Update its plan/checklist/evidence in place;
-do not copy its P4/P5 tasks here or into GigPies. Its later host adapter is a distinct
-integration task only after the measurement contract exists. Physical graph
+do not copy its P4/P5 tasks here or into GigPies. The existing GP20 host adapter is a distinct integration; its current extensions
+are recorded by shared [GP-PA-SETUP](../../gigpies/docs/archive/pa-setup-2026-10-29.md). Physical graph
 qualification contributes to shared GP-H1. Other standalone PA features stay in
 [the standalone roadmap](ROADMAP.md), outside GigPies's integration queue.
 

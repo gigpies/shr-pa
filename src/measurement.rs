@@ -102,6 +102,54 @@ pub struct Proposal {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
+    EqSweeps {
+        contract: String,
+        version: u32,
+        configuration_revision: String,
+        configuration: GraphConfig,
+        positions: Vec<crate::sweep::SweepResult>,
+        target: crate::auto_eq::Target,
+    },
+    EqPropose {
+        contract: String,
+        version: u32,
+        configuration_revision: String,
+        configuration: GraphConfig,
+        positions: Vec<Measurement>,
+        target: crate::auto_eq::Target,
+    },
+    EqCandidate {
+        contract: String,
+        version: u32,
+        configuration_revision: String,
+        configuration: GraphConfig,
+        proposal: Box<crate::auto_eq::EqProposal>,
+    },
+    Overlap {
+        contract: String,
+        version: u32,
+        configuration_revision: String,
+        configuration: GraphConfig,
+        positions: Vec<PositionPair>,
+    },
+    SweepRepeated {
+        contract: String,
+        version: u32,
+        capture: Box<CaptureMeta>,
+        spec: crate::sweep::SweepSpec,
+        reference: Vec<f64>,
+        responses: Vec<Vec<f64>>,
+        calibration: Option<crate::calibration::Calibration>,
+    },
+    Sweep {
+        contract: String,
+        version: u32,
+        capture: Box<CaptureMeta>,
+        spec: crate::sweep::SweepSpec,
+        reference: Vec<f64>,
+        mic: Vec<f64>,
+        calibration: Option<crate::calibration::Calibration>,
+    },
     Analyze {
         contract: String,
         version: u32,
@@ -138,7 +186,7 @@ pub fn counter(s: &str) -> Result<u64, &'static str> {
 fn identifier(s: &str) -> bool {
     !s.is_empty() && s.len() <= 128 && s.bytes().all(|b| b.is_ascii_graphic())
 }
-fn validate_meta(m: &CaptureMeta, samples: usize) -> Result<(), &'static str> {
+pub(crate) fn validate_meta(m: &CaptureMeta, samples: usize) -> Result<(), &'static str> {
     if ![
         &m.id,
         &m.clock_domain,
@@ -339,6 +387,42 @@ pub fn analyze(
         reasons,
     })
 }
+/// Spectral evidence admission for EQ; direct-path correlation is not an EQ prerequisite.
+pub(crate) fn validate_transfer(m: &Measurement) -> Result<(), &'static str> {
+    validate_meta(&m.capture, m.samples)?;
+    validate_options(&m.options)?;
+    if m.contract != "C-PA-MEASUREMENT-RESULT"
+        || m.version != 1
+        || !matches!(
+            m.algorithm.as_str(),
+            "offline-h1-v1" | "offline-sweep-ensemble-v1"
+        )
+        || !(MIN_SAMPLES..=MAX_SAMPLES).contains(&m.samples)
+        || (m.algorithm == "offline-h1-v1" && !(8..=32).contains(&m.segments))
+        || (m.algorithm == "offline-sweep-ensemble-v1"
+            && (m.segments != 4 || !m.reasons.is_empty()))
+        || !(8..=64).contains(&m.spectrum.len())
+    {
+        return Err("invalid_transfer");
+    }
+    let mut previous = 0.;
+    for b in &m.spectrum {
+        if ![b.frequency_hz, b.magnitude, b.phase_radians, b.coherence]
+            .iter()
+            .all(|v| v.is_finite())
+            || b.frequency_hz <= previous
+            || b.frequency_hz < m.options.band_hz[0]
+            || b.frequency_hz > m.options.band_hz[1]
+            || b.magnitude <= 0.
+            || !(-PI..=PI).contains(&b.phase_radians)
+            || !(0.0..=1.0).contains(&b.coherence)
+        {
+            return Err("invalid_transfer_bin");
+        }
+        previous = b.frequency_hz;
+    }
+    Ok(())
+}
 fn validate_measurement(m: &Measurement) -> Result<(), &'static str> {
     validate_meta(&m.capture, m.samples)?;
     validate_options(&m.options)?;
@@ -392,7 +476,7 @@ fn validate_measurement(m: &Measurement) -> Result<(), &'static str> {
     }
     Ok(())
 }
-fn same_basis(a: &CaptureMeta, b: &CaptureMeta) -> bool {
+pub(crate) fn same_basis(a: &CaptureMeta, b: &CaptureMeta) -> bool {
     a.source_epoch == b.source_epoch
         && a.map_revision == b.map_revision
         && a.clock_domain == b.clock_domain
@@ -402,11 +486,118 @@ fn same_basis(a: &CaptureMeta, b: &CaptureMeta) -> bool {
         && a.sample_rate == b.sample_rate
         && a.configuration_revision == b.configuration_revision
 }
+fn use_overlap(a: &SpectralBin, b: &SpectralBin) -> bool {
+    a.coherence >= 0.98 && b.coherence >= 0.98 && (0.1..=10.).contains(&(a.magnitude / b.magnitude))
+}
+fn overlap_delay(a: &Measurement, b: &Measurement) -> Result<(i32, bool), &'static str> {
+    let bins: Vec<_> = a
+        .spectrum
+        .iter()
+        .filter_map(|x| {
+            b.spectrum
+                .iter()
+                .find(|y| y.frequency_hz == x.frequency_hz && use_overlap(x, y))
+                .map(|y| (x, y))
+        })
+        .collect();
+    if bins.len() < 8 || bins.last().unwrap().0.frequency_hz - bins[0].0.frequency_hz < 200. {
+        return Err("insufficient_coherent_overlap");
+    }
+    let mut best = (f64::INFINITY, 0_i32, false);
+    for delta in -480..=480 {
+        for invert in [false, true] {
+            let score = bins
+                .iter()
+                .map(|(x, y)| {
+                    let phase = y.phase_radians - x.phase_radians
+                        + 2. * PI * x.frequency_hz * delta as f64 / 48000.
+                        + if invert { PI } else { 0. };
+                    phase.sin().atan2(phase.cos()).powi(2)
+                })
+                .sum::<f64>()
+                / bins.len() as f64;
+            if score < best.0 {
+                best = (score, delta, invert);
+            }
+        }
+    }
+    if best.0.sqrt() > PI / 12. {
+        return Err("nonconstant_relative_phase");
+    }
+    if best.1.abs() == 480 {
+        return Err("overlap_fit_at_boundary");
+    }
+    Ok((best.1, best.2))
+}
+/// Predicted complex sum at common measured bins, separate from measured data.
+pub fn predicted_sum(
+    pair: &PositionPair,
+    proposal: &Proposal,
+) -> Result<Vec<SpectralBin>, &'static str> {
+    proposal.candidate_configuration(
+        &proposal.basis_configuration,
+        &proposal.basis_configuration_revision,
+    )?;
+    let mut out = Vec::new();
+    for a in &pair.anchor.spectrum {
+        if let Some(b) = pair
+            .target
+            .spectrum
+            .iter()
+            .find(|b| b.frequency_hz == a.frequency_hz)
+        {
+            let mut sum = (0., 0.);
+            for (m, bin) in [(&pair.anchor, a), (&pair.target, b)] {
+                let change = proposal
+                    .changes
+                    .iter()
+                    .find(|c| c.output_index == m.capture.output_index);
+                let phase = bin.phase_radians
+                    + change.map_or(0., |c| {
+                        -2. * PI
+                            * bin.frequency_hz
+                            * (c.after_delay_samples - c.before_delay_samples) as f64
+                            / 48000.
+                            + if c.before_inverted != c.after_inverted {
+                                PI
+                            } else {
+                                0.
+                            }
+                    });
+                sum.0 += bin.magnitude * phase.cos();
+                sum.1 += bin.magnitude * phase.sin();
+            }
+            out.push(SpectralBin {
+                frequency_hz: a.frequency_hz,
+                magnitude: sum.0.hypot(sum.1),
+                phase_radians: sum.1.atan2(sum.0),
+                coherence: a.coherence.min(b.coherence),
+            });
+        }
+    }
+    Ok(out)
+}
 /// Produces a review object only. No graph instance or mute/rearm state is touched.
 pub fn propose(
     base: &GraphConfig,
     revision: &str,
     positions: &[PositionPair],
+) -> Result<Proposal, &'static str> {
+    propose_impl(base, revision, positions, false)
+}
+/// Coherent crossover-overlap fitting; v1 direct-path admission remains unchanged.
+pub fn propose_overlap(
+    base: &GraphConfig,
+    revision: &str,
+    positions: &[PositionPair],
+) -> Result<Proposal, &'static str> {
+    propose_impl(base, revision, positions, true)
+}
+fn propose_impl(
+    base: &GraphConfig,
+    revision: &str,
+    positions: &[PositionPair],
+    overlap: bool,
 ) -> Result<Proposal, &'static str> {
     base.validate()?;
     if base.sample_rate != 48000
@@ -445,8 +636,13 @@ pub fn propose(
         let mut seen_ids = std::collections::BTreeSet::new();
         let mut consensus = None;
         for p in positions {
-            validate_measurement(&p.anchor)?;
-            validate_measurement(&p.target)?;
+            if overlap {
+                validate_transfer(&p.anchor)?;
+                validate_transfer(&p.target)?;
+            } else {
+                validate_measurement(&p.anchor)?;
+                validate_measurement(&p.target)?;
+            }
             let (a, b) = (&p.anchor, &p.target);
             if !same_basis(&a.capture, &b.capture)
                 || !same_basis(origin, &a.capture)
@@ -464,13 +660,21 @@ pub fn propose(
             proposal
                 .measurement_ids
                 .extend([a.capture.id.clone(), b.capture.id.clone()]);
-            let delta = b.arrival_samples - a.arrival_samples;
+            let fitted = if overlap {
+                Some(overlap_delay(a, b)?)
+            } else {
+                None
+            };
+            let delta = fitted.map_or(b.arrival_samples - a.arrival_samples, |v| v.0);
             let mut errors = [0., 0.];
             let mut used = 0;
             for x in &a.spectrum {
                 let Some(y) = b.spectrum.iter().find(|y| y.frequency_hz == x.frequency_hz) else {
                     continue;
                 };
+                if overlap && !use_overlap(x, y) {
+                    continue;
+                }
                 let residual = y.phase_radians - x.phase_radians
                     + 2. * PI * x.frequency_hz * delta as f64 / 48000.;
                 for (invert, sum) in errors.iter_mut().enumerate() {
@@ -482,7 +686,7 @@ pub fn propose(
             if used < 8 {
                 return Err("insufficient_common_band");
             }
-            let invert = errors[1] < errors[0];
+            let invert = fitted.map_or(errors[1] < errors[0], |v| v.1);
             if (errors[usize::from(invert)] / used as f64).sqrt() > PI / 12. {
                 return Err("nonconstant_relative_phase");
             }
@@ -686,6 +890,137 @@ pub fn decode_request(bytes: &[u8]) -> Result<Request, String> {
 }
 pub fn execute(request: Request) -> Result<serde_json::Value, String> {
     match request {
+        Request::EqSweeps {
+            contract,
+            version,
+            configuration_revision,
+            configuration,
+            positions,
+            target,
+        } => {
+            if contract != "C-PA-MEASUREMENT" || version != 2 {
+                return Err("request_identity".into());
+            }
+            serde_json::to_value(crate::auto_eq::fit_sweeps(
+                &configuration,
+                &configuration_revision,
+                &positions,
+                target,
+            )?)
+            .map_err(|e| e.to_string())
+        }
+        Request::EqPropose {
+            contract,
+            version,
+            configuration_revision,
+            configuration,
+            positions,
+            target,
+        } => {
+            if contract != "C-PA-MEASUREMENT" || version != 2 {
+                return Err("request_identity".into());
+            }
+            serde_json::to_value(crate::auto_eq::fit(
+                &configuration,
+                &configuration_revision,
+                &positions,
+                target,
+            )?)
+            .map_err(|e| e.to_string())
+        }
+        Request::EqCandidate {
+            contract,
+            version,
+            configuration_revision,
+            configuration,
+            proposal,
+        } => {
+            if contract != "C-PA-MEASUREMENT" || version != 2 {
+                return Err("request_identity".into());
+            }
+            let candidate =
+                proposal.candidate_configuration(&configuration, &configuration_revision)?;
+            Ok(
+                serde_json::json!({"contract":"C-PA-EQ-CANDIDATE","version":1,"basis_capture":proposal.basis_capture,"basis_configuration_revision":configuration_revision,"configuration_json":serde_json::to_string(&candidate).map_err(|e|e.to_string())?}),
+            )
+        }
+        Request::Overlap {
+            contract,
+            version,
+            configuration_revision,
+            configuration,
+            positions,
+        } => {
+            if contract != "C-PA-MEASUREMENT" || version != 2 {
+                return Err("request_identity".into());
+            }
+            let proposal = propose_overlap(&configuration, &configuration_revision, &positions)?;
+            let mut predictions = if proposal.status == "refused" {
+                Vec::new()
+            } else {
+                positions
+                    .iter()
+                    .map(|p| predicted_sum(p, &proposal))
+                    .collect::<Result<Vec<_>, _>>()?
+            };
+            // Display budget within GP20's retained-document bound. Analysis above
+            // still uses every qualified bin and every requested position.
+            if !predictions.is_empty() {
+                let per_position = (128 / predictions.len()).min(64);
+                for bins in &mut predictions {
+                    if bins.len() > per_position {
+                        *bins = (0..per_position)
+                            .map(|i| bins[i * (bins.len() - 1) / (per_position - 1)].clone())
+                            .collect();
+                    }
+                }
+            }
+            Ok(
+                serde_json::json!({"contract":"C-PA-OVERLAP-REVIEW","version":1,"proposal":proposal,"predictions":predictions}),
+            )
+        }
+        Request::SweepRepeated {
+            contract,
+            version,
+            capture,
+            spec,
+            reference,
+            responses,
+            calibration,
+        } => {
+            if contract != "C-PA-MEASUREMENT" || version != 2 {
+                return Err("request_identity".into());
+            }
+            serde_json::to_value(crate::sweep::extract_repeated(
+                &capture,
+                &spec,
+                &reference,
+                &responses,
+                calibration.as_ref(),
+            )?)
+            .map_err(|e| e.to_string())
+        }
+        Request::Sweep {
+            contract,
+            version,
+            capture,
+            spec,
+            reference,
+            mic,
+            calibration,
+        } => {
+            if contract != "C-PA-MEASUREMENT" || version != 2 {
+                return Err("request_identity".into());
+            }
+            serde_json::to_value(crate::sweep::extract(
+                &capture,
+                &spec,
+                &reference,
+                &mic,
+                calibration.as_ref(),
+            )?)
+            .map_err(|e| e.to_string())
+        }
         Request::Analyze {
             contract,
             version,

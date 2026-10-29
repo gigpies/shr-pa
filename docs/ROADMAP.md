@@ -164,7 +164,11 @@ For level balancing, measure the relevant speakers/bands, estimate differences,
 and either guide physical adjustment or apply bounded, visible trims. Check noise,
 clipping and headroom. Make trims removable and retain the old configuration.
 
-For AutoEQ, measure sweeps using one microphone, with up to four sequential
+The [offline setup core](OFFLINE_SETUP.md) now implements bounded output-PEQ
+proposals, four-position aggregation, explicit target curves and calibrated offline
+sweep analysis. This does not complete physical capture or the setup wizard below.
+
+For the full AutoEQ workflow, measure sweeps using one microphone, with up to four sequential
 positions in the reference workflow. Average aligned response estimates/powers,
 not unaligned raw audio. Fit up to eight PEQ bands off-thread with limits on boost,
 Q and correction range. Avoid filling cancellation nulls. Provide the three target

@@ -186,9 +186,9 @@ refusals, noise/periodicity/reflections, exact multi-position consensus, malform
 JSON and candidate configuration preservation. All generated signals are invented
 in memory. Normal production gates remain in [VALIDATION](VALIDATION.md).
 
-No fractional-sample fitting, automatic EQ, live capture, clock-drift correction,
-calibration file processing, general reflected-room inversion or acoustic confidence
-claim is made. A strong coherent reflected path can still look like a direct path.
+Version 1 makes no fractional-sample, EQ, live capture, clock-drift, calibration,
+room-inversion or acoustic-confidence claim. Additive version 2 offline operations
+are documented in [offline setup](OFFLINE_SETUP.md); v1 requests remain unchanged. A strong coherent reflected path can still look like a direct path.
 Single-position proposals are provisional. Actual combined-response verification,
 several physical positions, protection qualification and separately authorized
 capture remain required before acoustic acceptance.

@@ -422,7 +422,11 @@ impl Editor {
                     b.gain_db,
                     b.inverted
                 ),
-                format!("d/D:{:.1}ms e/E:EQ {:+.0}dB", b.delay_ms, b.eq[0].db),
+                format!(
+                    "d/D:{} EQ {:+.0}",
+                    crate::distance::display(b.delay_ms, self.config.sample_rate),
+                    b.eq[0].db
+                ),
                 format!(
                     "t/T:limit {:.0}dB o:mono bass {}",
                     b.limiter_db, self.config.mono_bass
@@ -669,10 +673,16 @@ impl Editor {
             ],
             5 => vec![
                 format!("Input gain {:+.1} dB", c.input_gain_db),
-                format!("Input delay {:.1} ms", c.input_delay_ms),
+                format!(
+                    "Input {}",
+                    crate::distance::display(c.input_delay_ms, c.sample_rate)
+                ),
                 format!("Pair gain {:+.1} dB", b.gain_db),
                 format!("Pair inverted {}", b.inverted),
-                format!("Pair delay {:.1} ms", b.delay_ms),
+                format!(
+                    "Pair {}",
+                    crate::distance::display(b.delay_ms, c.sample_rate)
+                ),
                 format!("Mono bass {}", c.mono_bass),
             ],
             _ => {
@@ -1188,6 +1198,30 @@ impl Editor {
             .unwrap_or((command.trim(), ""));
         let arg = arg.trim();
         match op {
+            "delay" => {
+                let (scope, value) = arg
+                    .split_once(' ')
+                    .ok_or_else(|| Error::other("delay input|pair VALUE ms|m|cm"))?;
+                let maximum = match scope {
+                    "input" => 100.,
+                    "pair" => 10.,
+                    _ => return Err(Error::other("delay input|pair")),
+                };
+                let ms = crate::distance::parse_ms(value, maximum).map_err(Error::other)?;
+                let mut next = self.config;
+                if scope == "input" {
+                    next.input_delay_ms = ms;
+                } else {
+                    next.bands[self.selected].delay_ms = ms;
+                }
+                next.validate().map_err(Error::other)?;
+                self.config = next;
+                self.checkpoint();
+                return Ok(format!(
+                    "{} added path",
+                    crate::distance::display(ms, self.config.sample_rate)
+                ));
+            }
             "select" => {
                 crate::library::slot(arg)?;
                 self.library_selected = arg.into();

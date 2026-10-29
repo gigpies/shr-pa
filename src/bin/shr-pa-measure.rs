@@ -3,6 +3,25 @@ use std::io::Read;
 fn main() {
     let result = (|| -> Result<serde_json::Value, String> {
         let args: Vec<_> = std::env::args().skip(1).collect();
+        if args.len() == 3 && args[0] == "--calibration" {
+            if !std::fs::symlink_metadata(&args[1])
+                .map_err(|e| e.to_string())?
+                .file_type()
+                .is_file()
+            {
+                return Err("calibration requires regular non-symlink file".into());
+            }
+            let file = std::fs::File::open(&args[1]).map_err(|e| e.to_string())?;
+            if !file.metadata().map_err(|e| e.to_string())?.is_file() {
+                return Err("calibration requires regular file".into());
+            }
+            let mut text = String::new();
+            file.take(32769)
+                .read_to_string(&mut text)
+                .map_err(|e| e.to_string())?;
+            return serde_json::to_value(shr_pa::calibration::Calibration::parse(&text, &args[2])?)
+                .map_err(|e| e.to_string());
+        }
         if args.len() > 1 {
             return Err("usage: shr-pa-measure [request.json|-]".into());
         }

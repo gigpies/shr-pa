@@ -78,3 +78,12 @@ patch before pressing u. [Complete device setup](reference/RUNNING.md#direct-als
 
 [Recovery and backup details](reference/RUNNING.md#backup-recovery-and-rollback).
 Software mute cannot guarantee silence after a device, process or power failure.
+
+## Distance and offline setup
+
+Enter `:delay input 1m` or `:delay pair 34.3cm` in the editor; `ms` also works.
+Pair selects the current output pair. Distance means added path equivalent at
+343 m/s. The gain/delay page shows sample-rounded delay and approximate distance;
+output delay remains limited to 10 ms. See [offline setup](OFFLINE_SETUP.md) for
+review-only crossover analysis, conservative EQ, microphone correction format
+and in-memory sweep extraction. None of these operations opens physical audio.

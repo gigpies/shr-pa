@@ -121,6 +121,11 @@ latency cost. Unknown proprietary constants are not fabricated.
 | M08 — guided feedback ring-out; pp. 15, 23, 31–34 | Explicit setup mode using fixed filters, completion/abort, then live tracking. Show occupied slots and keep manual ring-out available. | Controlled feedback model, fixed-to-live handoff, cancellation and no automatic restart. P6 |
 | M09 — manual commissioning; pp. 18–23 | Provide the manual equivalents: crossover setup, polarity/alignment, gain and limiter calibration, band balance, room EQ and feedback checks. Wizards must not be the only way to operate. | A complete setup can be completed without a profile or automatic analysis. P5/P7 |
 
+The [offline setup contract](OFFLINE_SETUP.md) implements an M01/M04 software
+increment: one precisely defined calibration format, bounded sweep extraction
+and conservative review-only PEQ fitting. Physical microphone accuracy, room
+verification and the complete M06/M07 wizard remain unqualified or pending.
+
 Plan RTA display offset 0–40 dB and peak hold 0.5–5 seconds; generator gain
 −60–0 dBFS, with a conservative initial setting. For level balancing, support
 small trims up to 3 dB and a 1 dB comparison tolerance as initial compatibility

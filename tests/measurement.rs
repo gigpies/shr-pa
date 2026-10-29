@@ -475,3 +475,450 @@ fn owner_candidate_operation_rejects_forged_refused_or_mismatched_basis() {
     bad["configuration"]["outputs"][0]["processing"]["limiter_db"] = (-20).into();
     assert!(run(&bad).is_err());
 }
+
+#[test]
+fn crossover_overlap_uses_phase_model_and_independent_corrected_render() {
+    let x = noise();
+    let mut c = GraphConfig::stereo(vec![1000.]);
+    for o in &mut c.outputs {
+        o.source = Some(shr_pa::graph::Source::Input(0));
+    }
+    // High output 0 and low output 2; low driver adds 17 samples and inversion.
+    let before = render(c.clone(), &x);
+    let options = Options {
+        max_arrival_samples: 128,
+        band_hz: [500., 2000.],
+    };
+    let a = analyze(&meta("overlap-a", 0), &x, &before[0], &options).unwrap();
+    let b = analyze(
+        &meta("overlap-b", 2),
+        &x,
+        &shifted(&before[2], 17, -0.8),
+        &options,
+    )
+    .unwrap();
+    let pair = PositionPair {
+        anchor: a,
+        target: b,
+    };
+    let p = propose_overlap(&c, "1", std::slice::from_ref(&pair)).unwrap();
+    assert_eq!(p.status, "proposed", "{}", p.reason);
+    assert_eq!(p.added_latency_samples, 17);
+    let reflected: Vec<_> = shifted(&before[2], 17, -0.8)
+        .iter()
+        .zip(shifted(&before[2], 83, -0.7))
+        .map(|(a, b)| a + b)
+        .collect();
+    let reflected_pair = PositionPair {
+        anchor: pair.anchor.clone(),
+        target: analyze(&meta("reflected-low", 2), &x, &reflected, &options).unwrap(),
+    };
+    assert_eq!(
+        propose_overlap(&c, "1", &[reflected_pair]).unwrap().status,
+        "refused"
+    );
+    let prediction = predicted_sum(&pair, &p).unwrap();
+    let after = render(p.candidate_configuration(&c, "1").unwrap(), &x);
+    let low = shifted(&after[2], 17, -0.8);
+    let sum: Vec<_> = after[0].iter().zip(low).map(|(a, b)| a + b).collect();
+    let measured = analyze(&meta("sum", 0), &x, &sum, &options).unwrap();
+    for b in measured.spectrum {
+        let predicted = prediction
+            .iter()
+            .find(|p| p.frequency_hz == b.frequency_hz)
+            .unwrap();
+        assert!((20. * (b.magnitude / predicted.magnitude).log10()).abs() < 0.15);
+    }
+    let aligned = PositionPair {
+        anchor: analyze(&meta("aligned-a", 0), &x, &after[0], &options).unwrap(),
+        target: analyze(
+            &meta("aligned-b", 2),
+            &x,
+            &shifted(&after[2], 17, -0.8),
+            &options,
+        )
+        .unwrap(),
+    };
+    assert_eq!(
+        propose_overlap(
+            &p.candidate_configuration(&c, "1").unwrap(),
+            "1",
+            &[aligned]
+        )
+        .unwrap()
+        .status,
+        "no_change"
+    );
+    c.outputs[2].processing.eq[0] = shr_pa::config::EqBand {
+        hz: 1000.,
+        db: 12.,
+        q: 2.,
+        ..Default::default()
+    };
+    let distorted = render(c.clone(), &x);
+    let pair = PositionPair {
+        anchor: analyze(&meta("bad-a", 0), &x, &distorted[0], &options).unwrap(),
+        target: analyze(&meta("bad-b", 2), &x, &distorted[2], &options).unwrap(),
+    };
+    assert_eq!(propose_overlap(&c, "1", &[pair]).unwrap().status, "refused");
+}
+#[test]
+fn eq_fitter_independent_production_render_and_refusals() {
+    use shr_pa::auto_eq::{Target, fit};
+    let x = noise();
+    let base = config();
+    let mut room = config();
+    room.outputs[0].processing.eq[0] = shr_pa::config::EqBand {
+        hz: 2200.,
+        db: 6.,
+        q: 1.,
+        ..Default::default()
+    };
+    let colored = render(room.clone(), &x);
+    let measured = measure("eq", 0, &x, &colored[0]);
+    let p = fit(&base, "1", std::slice::from_ref(&measured), Target::Flat).unwrap();
+    assert_eq!(p.status, "proposed", "{}", p.reason);
+    let candidate = p.candidate_configuration(&base, "1").unwrap();
+    assert_eq!(candidate.inputs, base.inputs);
+    assert_eq!(candidate.outputs[1], base.outputs[1]);
+    let corrected = render(candidate, &colored[0]);
+    let after = measure("eq-after", 0, &x, &corrected[0]);
+    let error = |m: &Measurement| {
+        (m.spectrum
+            .iter()
+            .map(|b| (20. * b.magnitude.log10()).powi(2))
+            .sum::<f64>()
+            / m.spectrum.len() as f64)
+            .sqrt()
+    };
+    assert!(
+        error(&after) < error(&measured) * 0.5,
+        "{} -> {}",
+        error(&measured),
+        error(&after)
+    );
+    assert!((error(&after) - p.predicted_rms_db).abs() < 0.1);
+    assert_eq!(
+        fit(&base, "1", &[measure("flat", 0, &x, &x)], Target::Flat)
+            .unwrap()
+            .status,
+        "no_change"
+    );
+    let mut bad = measured.clone();
+    for b in &mut bad.spectrum {
+        b.coherence = 0.2;
+    }
+    assert_eq!(
+        fit(&base, "1", &[bad], Target::Flat).unwrap().status,
+        "refused"
+    );
+    let mut conflict = measured.clone();
+    conflict.capture.id = "eq2".into();
+    conflict.capture.position_id = "p2".into();
+    for b in &mut conflict.spectrum {
+        b.magnitude *= 2.;
+    }
+    assert_eq!(
+        fit(&base, "1", &[measured, conflict], Target::Flat)
+            .unwrap()
+            .reason,
+        "eq_conflicting_positions"
+    );
+}
+#[test]
+fn sweep_known_impulse_calibration_noise_truncation_and_timing() {
+    use shr_pa::sweep::*;
+    let spec = SweepSpec {
+        start_hz: 40.,
+        end_hz: 16000.,
+        sweep_samples: 16384,
+        total_samples: 32768,
+        amplitude: 0.1,
+    };
+    let x = spec.excitation().unwrap();
+    let y = shifted(&x, 23, 0.5);
+    let result = extract(&meta("sweep", 0), &spec, &x, &y, None).unwrap();
+    assert_eq!(result.transfer.arrival_samples, 23);
+    for b in &result.transfer.spectrum {
+        assert!((b.magnitude - 0.5).abs() < 1e-8);
+        let phase = b.phase_radians + 2. * PI * b.frequency_hz * 23. / 48000.;
+        assert!(phase.sin().abs() < 1e-8);
+    }
+    assert!(!result.transfer.proposal_eligible);
+    let mut clipped = y.clone();
+    clipped[50] = 1.;
+    assert!(extract(&meta("clip", 0), &spec, &x, &clipped, None).is_err());
+    assert!(extract(&meta("short", 0), &spec, &x, &y[..y.len() - 1], None).is_err());
+    assert!(extract(&meta("timing", 0), &spec, &shifted(&x, 1, 1.), &y, None).is_err());
+    let noise = noise();
+    let noisy: Vec<_> = y.iter().zip(noise).map(|(a, b)| a + b).collect();
+    assert!(extract(&meta("noise", 0), &spec, &x, &noisy, None).is_err());
+}
+
+#[test]
+fn overlap_conflicts_reflections_and_insufficient_excitation_refuse() {
+    let x = noise();
+    let c = config();
+    let options = Options {
+        max_arrival_samples: 128,
+        band_hz: [500., 4000.],
+    };
+    let make = |id: &str, delay, position: &str| {
+        let mut a = meta(&format!("{id}a"), 0);
+        a.position_id = position.into();
+        let mut b = meta(&format!("{id}b"), 1);
+        b.position_id = position.into();
+        PositionPair {
+            anchor: analyze(&a, &x, &x, &options).unwrap(),
+            target: analyze(&b, &x, &shifted(&x, delay, 1.), &options).unwrap(),
+        }
+    };
+    assert_eq!(
+        propose_overlap(&c, "1", &[make("a", 17, "p1"), make("b", 18, "p2")])
+            .unwrap()
+            .reason,
+        "conflicting_positions"
+    );
+    let mut reflected = make("r", 17, "p1");
+    let y: Vec<_> = shifted(&x, 17, 1.)
+        .iter()
+        .zip(shifted(&x, 83, 0.8))
+        .map(|(a, b)| a + b)
+        .collect();
+    reflected.target = analyze(&meta("r-b", 1), &x, &y, &options).unwrap();
+    assert_eq!(
+        propose_overlap(&c, "1", &[reflected]).unwrap().status,
+        "refused"
+    );
+    let mut weak = make("w", 17, "p1");
+    for b in &mut weak.target.spectrum {
+        b.coherence = 0.2;
+    }
+    assert_eq!(
+        propose_overlap(&c, "1", &[weak]).unwrap().reason,
+        "insufficient_coherent_overlap"
+    );
+}
+#[test]
+fn repeated_sweep_retains_origin_and_feeds_eq_with_explicit_calibration() {
+    use shr_pa::{
+        auto_eq::{Target, fit},
+        calibration::Calibration,
+        sweep::*,
+    };
+    let spec = SweepSpec {
+        start_hz: 40.,
+        end_hz: 16000.,
+        sweep_samples: 16384,
+        total_samples: 32768,
+        amplitude: 0.03,
+    };
+    let x = spec.excitation().unwrap();
+    let c = Calibration::parse(
+        "SHR-PA-CAL 1 Hz correction_dB\n20 6.020599913279624\n20000 6.020599913279624",
+        "invented-response-correction",
+    )
+    .unwrap();
+    let y = shifted(&x, 23, 0.5);
+    let r = extract_repeated(&meta("repeat", 0), &spec, &x, &vec![y.clone(); 4], Some(&c)).unwrap();
+    let eq = shr_pa::auto_eq::fit_sweeps(&config(), "1", std::slice::from_ref(&r), Target::Flat)
+        .unwrap();
+    assert_eq!(eq.status, "no_change");
+    assert!(eq.calibration.is_some());
+    assert_eq!(r.transfer.arrival_samples, 23);
+    assert!(r.reasons.is_empty());
+    assert_eq!(
+        r.calibration.unwrap().provenance,
+        "invented-response-correction"
+    );
+    assert!(
+        r.transfer
+            .spectrum
+            .iter()
+            .all(|b| (b.magnitude - 1.).abs() < 1e-8 && b.coherence > 0.999)
+    );
+    assert_eq!(
+        fit(&config(), "1", &[r.transfer], Target::Flat)
+            .unwrap()
+            .status,
+        "no_change"
+    );
+    let mut wrong = vec![y; 4];
+    wrong[3] = shifted(&x, 24, 0.5);
+    assert!(extract_repeated(&meta("wrong", 0), &spec, &x, &wrong, None).is_err());
+}
+#[test]
+fn eq_no_free_slots_nulls_and_target_definitions() {
+    use shr_pa::auto_eq::{Target, fit};
+    let x = noise();
+    let mut m = measure("bounds", 0, &x, &x);
+    let mut c = config();
+    assert_eq!(Target::BassShaped.db(100.), 3.);
+    assert_eq!(Target::BassShaped.db(200.), 0.);
+    assert_eq!(Target::DampedHighFrequency.db(8000.), -3.);
+    for b in &mut m.spectrum {
+        b.magnitude = 2.;
+    }
+    for b in &mut c.outputs[0].processing.eq {
+        b.db = 1.;
+    }
+    assert_eq!(
+        fit(&c, "1", &[m.clone()], Target::Flat).unwrap().reason,
+        "eq_no_unused_slots"
+    );
+    for b in &mut m.spectrum {
+        b.magnitude = 0.01;
+    }
+    assert_eq!(
+        fit(&config(), "1", &[m], Target::Flat).unwrap().reason,
+        "eq_insufficient_reliable_band"
+    );
+}
+#[test]
+fn standalone_distance_entry_preserves_limits_and_other_parameters() {
+    let mut editor = shr_pa::ui::Editor::new().unwrap();
+    let original = editor.config;
+    editor.command("delay pair 343cm");
+    assert!((editor.config.bands[0].delay_ms - 10.).abs() < 1e-12);
+    editor.command("delay pair 3.44m");
+    assert!((editor.config.bands[0].delay_ms - 10.).abs() < 1e-12);
+    editor.command("delay input 34.3m");
+    assert!((editor.config.input_delay_ms - 100.).abs() < 1e-10);
+    editor.command("delay pair 0ms");
+    editor.command("delay input 0cm");
+    assert_eq!(editor.config, original);
+}
+
+#[test]
+fn sweep_two_tap_transfer_matches_independent_analytic_response() {
+    use shr_pa::sweep::*;
+    let spec = SweepSpec {
+        start_hz: 40.,
+        end_hz: 16000.,
+        sweep_samples: 16384,
+        total_samples: 32768,
+        amplitude: 0.1,
+    };
+    let x = spec.excitation().unwrap();
+    let y: Vec<_> = shifted(&x, 23, 0.5)
+        .iter()
+        .zip(shifted(&x, 61, 0.1))
+        .map(|(a, b)| a + b)
+        .collect();
+    let r = extract(&meta("fir", 0), &spec, &x, &y, None).unwrap();
+    for b in r.transfer.spectrum {
+        let w = 2. * PI * b.frequency_hz / 48000.;
+        let re = 0.5 * (w * 23.).cos() + 0.1 * (w * 61.).cos();
+        let im = -0.5 * (w * 23.).sin() - 0.1 * (w * 61.).sin();
+        assert!((b.magnitude - re.hypot(im)).abs() < 1e-8);
+    }
+}
+
+#[test]
+fn eq_narrow_null_and_unimprovable_alternation_preserve_base() {
+    use shr_pa::auto_eq::{Target, fit};
+    let x = noise();
+    let base = config();
+    let mut m = measure("null", 0, &x, &x);
+    m.spectrum[20].magnitude = 0.01;
+    let p = fit(&base, "1", &[m.clone()], Target::Flat).unwrap();
+    assert_eq!(p.status, "no_change");
+    assert!(p.bands.is_empty());
+    assert_eq!(p.basis_configuration, base);
+    for (i, b) in m.spectrum.iter_mut().enumerate() {
+        b.magnitude = 10_f64.powf(if i % 2 == 0 { 0.8 / 20. } else { -0.8 / 20. });
+    }
+    let p = fit(&base, "1", &[m], Target::Flat).unwrap();
+    assert_eq!(p.status, "refused");
+    assert!(p.bands.is_empty());
+    assert_eq!(p.reason, "eq_no_safe_improvement");
+}
+
+#[test]
+fn explicit_bass_and_damped_targets_are_not_diluted_by_dense_high_frequency_bins() {
+    use shr_pa::auto_eq::{Target, fit};
+    let x = noise();
+    let measured = measure("targets", 0, &x, &x);
+    for target in [Target::BassShaped, Target::DampedHighFrequency] {
+        let p = fit(&config(), "1", std::slice::from_ref(&measured), target).unwrap();
+        assert_eq!(
+            p.status, "proposed",
+            "{target:?}: {} / {} dB",
+            p.reason, p.before_rms_db
+        );
+        let after = render(p.candidate_configuration(&config(), "1").unwrap(), &x);
+        let actual = measure("target-after", 0, &x, &after[0]);
+        // Independent log-frequency quadrature of the actual rendered transfer.
+        let error = |m: &Measurement| {
+            let mut sum = 0.;
+            let mut weight = 0.;
+            for (i, b) in m.spectrum.iter().enumerate() {
+                let lo = if i == 0 {
+                    b.frequency_hz
+                } else {
+                    (m.spectrum[i - 1].frequency_hz * b.frequency_hz).sqrt()
+                };
+                let hi = if i + 1 == m.spectrum.len() {
+                    b.frequency_hz
+                } else {
+                    (m.spectrum[i + 1].frequency_hz * b.frequency_hz).sqrt()
+                };
+                let w = (hi / lo).ln();
+                sum += w * (20. * b.magnitude.log10() - target.db(b.frequency_hz)).powi(2);
+                weight += w;
+            }
+            (sum / weight).sqrt()
+        };
+        assert!(error(&actual) + 0.2 < error(&measured));
+        assert!((error(&actual) - p.predicted_rms_db).abs() < 0.1);
+    }
+}
+
+#[test]
+fn eight_position_prediction_display_preserves_positions_and_endpoints_within_budget() {
+    let x = noise();
+    let a = measure("a", 0, &x, &x);
+    let b = measure("b", 1, &x, &shifted(&x, 17, 1.));
+    let mut positions = Vec::new();
+    for i in 0..8 {
+        let mut a = a.clone();
+        let mut b = b.clone();
+        a.capture.id = format!("a{i}");
+        b.capture.id = format!("b{i}");
+        a.capture.position_id = format!("p{i}");
+        b.capture.position_id = format!("p{i}");
+        positions.push(PositionPair {
+            anchor: a,
+            target: b,
+        });
+    }
+    let result = execute(Request::Overlap {
+        contract: "C-PA-MEASUREMENT".into(),
+        version: 2,
+        configuration_revision: "1".into(),
+        configuration: config(),
+        positions,
+    })
+    .unwrap();
+    let predictions = result["predictions"].as_array().unwrap();
+    assert_eq!(predictions.len(), 8);
+    assert_eq!(
+        predictions
+            .iter()
+            .map(|p| p.as_array().unwrap().len())
+            .sum::<usize>(),
+        128
+    );
+    for p in predictions {
+        let bins = p.as_array().unwrap();
+        assert_eq!(
+            bins[0]["frequency_hz"].as_f64(),
+            Some(a.spectrum[0].frequency_hz)
+        );
+        assert_eq!(
+            bins.last().unwrap()["frequency_hz"].as_f64(),
+            Some(a.spectrum.last().unwrap().frequency_hz)
+        );
+    }
+    assert!(serde_json::to_vec(&result).unwrap().len() < 65536);
+}
