@@ -158,3 +158,24 @@ passed off as a GP20 v1 captured H1 record. GP20 continues to own live-source
 software capture; offline sweep files do not introduce another capture owner.
 
 [Software validation record](archive/pa-setup-2026-10-29.md).
+
+## Desk integration of offline evidence
+
+GigPies can admit a bounded, explicitly hash-pinned startup catalog of complete
+v2 `eq_sweeps` requests. Desk selects a catalog ID, reviews the owner result and
+uses the existing muted prepare/review/commit transaction. Original calibration,
+common origins and exact configuration/revision are retained. Imported files never
+become authenticated GP20 captures; their timing flags remain offline declarations.
+The fitter rejects missing/nonfinite 4096-sample impulse evidence and calibration
+that fails to cover every retained transfer bin, in addition to its existing gates.
+
+For a repeatable invented interoperability fixture (no device access):
+
+```sh
+cargo run --locked --example offline-review-fixture -- GRAPH_JSON REVISION > PRIVATE_REQUEST_JSON
+```
+
+This produces a complete calibrated repeated-sweep EQ request, with an intentionally
+separate invented clock origin. It is a compatibility fixture, not calibration or
+acoustic acceptance. The [provider contract](https://github.com/gigpies/gigpies/blob/main/docs/reference/MEASUREMENT_PRODUCER.md#imported-calibrated-sweep-review-explicit-v2)
+owns catalog limits, authority, cancellation and integration behavior.

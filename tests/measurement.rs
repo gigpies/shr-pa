@@ -922,3 +922,50 @@ fn eight_position_prediction_display_preserves_positions_and_endpoints_within_bu
     }
     assert!(serde_json::to_vec(&result).unwrap().len() < 65536);
 }
+
+#[test]
+fn imported_sweep_rejects_missing_impulse_and_uncovered_calibration() {
+    use shr_pa::{
+        auto_eq::{Target, fit_sweeps},
+        calibration::Calibration,
+        sweep::*,
+    };
+    let spec = SweepSpec {
+        start_hz: 40.,
+        end_hz: 16000.,
+        sweep_samples: 16384,
+        total_samples: 32768,
+        amplitude: 0.03,
+    };
+    let x = spec.excitation().unwrap();
+    let calibration = Calibration::parse(
+        "SHR-PA-CAL 1 Hz correction_dB\n20 0\n20000 0",
+        "invented-calibration",
+    )
+    .unwrap();
+    let good = extract_repeated(
+        &meta("import", 0),
+        &spec,
+        &x,
+        &vec![x.clone(); 4],
+        Some(&calibration),
+    )
+    .unwrap();
+    assert!(fit_sweeps(&config(), "1", std::slice::from_ref(&good), Target::Flat).is_ok());
+    let mut bad = good.clone();
+    bad.impulse.clear();
+    assert!(fit_sweeps(&config(), "1", &[bad], Target::Flat).is_err());
+    let mut bad = good.clone();
+    bad.calibration.as_mut().unwrap().points[0][0] = 1000.;
+    assert!(fit_sweeps(&config(), "1", &[bad], Target::Flat).is_err());
+    let mut second = good.clone();
+    second.transfer.capture.id = "second".into();
+    second.transfer.capture.position_id = "second".into();
+    second.transfer.capture.reference_offset_frames = "1".into();
+    assert_eq!(
+        fit_sweeps(&config(), "1", &[good, second], Target::Flat)
+            .unwrap()
+            .status,
+        "refused"
+    );
+}

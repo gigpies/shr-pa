@@ -174,3 +174,28 @@ dependency or GigPies integration is introduced by this task note.
 
 No new recordings, playback, host changes, implementation or builds were performed
 for this note. Listener evaluation and hardware acceptance remain separate steps.
+
+## Physical qualification after imported-sweep review
+
+This procedure is pending and requires a separately authorized physical session.
+Software tests, invented calibration and imported timing flags close none of it.
+
+1. Record actual interface/expander identity, sample rate, physical socket map,
+   clock source/lock, configuration revision and software/artifact identities.
+   Verify reference and microphone share a proven source-frame origin; measure
+   converter/transport/reference offsets without independently zeroing arrivals.
+2. Verify microphone model/serial, original calibration file/hash, units, correction
+   sign, coverage and provenance. Establish gain, clipping headroom and reference
+   routing; magnitude correction alone establishes neither phase nor absolute SPL.
+3. Keep the microphone outside program/monitor routing. With qualified protection
+   settings and controlled levels, explicitly authorize excitation and acquire
+   repeated sweeps at each intended position. Record clipping, drops, noise, tail
+   decay, timing continuity, repeat coherence and reflections. Stop on ambiguity.
+4. Review owner refusals and proposed changes, preserve complete evidence, then
+   mute and explicitly prepare/review/commit. Rearm only as a separate deliberate
+   action. Re-measure the combined response, timing/polarity and all relevant
+   positions against the unchanged reference origin; do not accept predictions alone.
+5. Independently qualify acoustic benefit, microphone accuracy, synchronization,
+   amplifier/loudspeaker protection and recovery behavior under the approved rig
+   conditions. Record failures and remaining limits; imported evidence acceptance
+   must never stand in for these physical observations.

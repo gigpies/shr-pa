@@ -18,7 +18,7 @@ remain unqualified; sample limiting is not true-peak or speaker calibration proo
 Measurement and delay/polarity alignment have one owning task plan:
 [PHASE_ALIGNMENT](PHASE_ALIGNMENT.md). Update its plan/checklist/evidence in place;
 do not copy its P4/P5 tasks here or into GigPies. The existing GP20 host adapter is a distinct integration; its current extensions
-are recorded by shared [GP-PA-SETUP](../../gigpies/docs/archive/pa-setup-2026-10-29.md). Physical graph
+are recorded by shared [GP-PA-SETUP](https://github.com/gigpies/gigpies/blob/main/docs/archive/pa-setup-2026-10-29.md). Physical graph
 qualification contributes to shared GP-H1. Other standalone PA features stay in
 [the standalone roadmap](ROADMAP.md), outside GigPies's integration queue.
 
@@ -33,3 +33,6 @@ Preserve closed milestone details in the linked archive; do not reopen old launc
 A documentation reconciliation does not rerun tests or qualify hardware.
 
 [Historical plan and milestone evidence](archive/tracking-before-2026-10-09/GIGPIES_IMPLEMENTATION.md). Its launch instructions are retired.
+
+
+[PA-CAL-REVIEW — calibrated offline Desk review](archive/pa-cal-review-2026-10-29.md) has software acceptance; physical qualification remains separate.

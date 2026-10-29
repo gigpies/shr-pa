@@ -340,12 +340,17 @@ pub fn fit_sweeps(
             || p.version != 1
             || p.calibration != positions[0].calibration
             || !p.reasons.is_empty()
+            || p.impulse.len() != 4096
+            || p.impulse.iter().any(|v| !v.is_finite())
             || p.transfer.algorithm != "offline-sweep-ensemble-v1"
         {
             return Err("eq_sweep_quality_or_calibration_conflict");
         }
         if let Some(calibration) = &p.calibration {
             calibration.validate()?;
+            for bin in &p.transfer.spectrum {
+                calibration.correction_db(bin.frequency_hz)?;
+            }
         }
     }
     let mut result = fit(

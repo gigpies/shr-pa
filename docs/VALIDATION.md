@@ -171,3 +171,18 @@ analytic LR24 phase, noise/reflection/periodicity refusal and position consensus
 [measurement contract](MEASUREMENT_V1.md). All existing engine, ABI, protection,
 terminal and software-null gates still apply. Physical capture and acoustic tests
 remain separately authorized and are not implicit in this command.
+
+## Strict no-device PA setup validation
+
+When a session prohibits *all* PCM opens, including ALSA `null`, use the complete
+Rust production suite with these four device-opening integrations explicitly filtered:
+
+```sh
+CARGO_INCREMENTAL=0 cargo test --locked --all-targets -- --skip pink_cli_render_and_explicit_null_streaming_preserve_startup_mutes --skip explicit_generator_level_reaches_all_six_outputs_offline_and_live --skip software_null_pcm_cancel_before_start_does_not_wait_for_capture --skip live_null_applies_runtime_level_before_meters_and_all_six_outputs
+```
+
+Do not run `check-live-controls.py` or live/software-null examples in that scope.
+Normal DSP, schema, safety, recovery, measurement and ABI tests still run. The
+frozen measurement corpus and real C v1/v2 callers are device-free compatibility
+checks. `offline-review-fixture` is an opt-in producer of invented integration
+input, not part of the default suite and not a load/physical qualification tool.
