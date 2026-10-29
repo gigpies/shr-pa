@@ -52,3 +52,11 @@ next ANSI boundary; persisted EQ-value and recovery assertions remain unchanged.
 terminal/recovery checks locally. Its temporary working state was automatically
 removed. No PCM opens, playback or host-setting changes were involved. This is a
 test-only correction; the validated production source identity is unchanged.
+
+The follow-up CI run at 6ad1e6e passed the corrected terminal check and exposed
+a second stale label in the existing live-controls check: `Input delay 1.0 ms`
+versus the current `Input 1.000ms ~0.34m/34cm`. Its regex now checks the exact
+current delay/distance text; the saved numeric delay assertion remains unchanged.
+Python syntax and positive/negative matching against CI text pass locally.
+The null-PCM script was not invoked locally under the session's no-device limit;
+its execution is left to the existing GitHub CI workflow. No production change.

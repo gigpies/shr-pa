@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix='shr-pa-controls-') as folder:
         key(b'v', rb'v:LIMITER')
         key(b'nx', rb'> Release 112.25 ms')
         key(b'v', rb'v:GAIN/DELAY')
-        key(b'nx', rb'> Input delay 1.0 ms')
+        key(b'nx', rb'> Input 1\.000ms ~0\.34m/34cm')
         key(b'v', rb'v:CROSSOVER')
         key(b'nnx', rb'> Low split 132.0 Hz')
         # Explicit phase-policy switch, then both edge controls on all pairs.
