@@ -386,49 +386,24 @@ impl Graph {
         if !self.live_eq_eligible() {
             return Err("live EQ resource budget");
         }
-        patch.validate(self.config.sample_rate, self.inputs.len())?;
-        let next = self
-            .eq_generation
-            .checked_add(1)
-            .ok_or("EQ generation exhausted")?;
-        let banks = [
-            patch.inputs[0].bank(self.config.sample_rate)?,
-            patch.inputs[1].bank(self.config.sample_rate)?,
-        ];
-        let changed = patch
-            .inputs
-            .each_ref()
-            .map(|e| !e.matches(&self.config.inputs[e.input_index]));
-        let noop = patch
-            .inputs
-            .iter()
-            .all(|e| e.matches(&self.config.inputs[e.input_index]));
-        Ok(Box::new(PreparedEq {
-            previous: [
-                EqSettings::from_input(
-                    patch.inputs[0].input_index,
-                    &self.config.inputs[patch.inputs[0].input_index],
-                ),
-                EqSettings::from_input(
-                    patch.inputs[1].input_index,
-                    &self.config.inputs[patch.inputs[1].input_index],
-                ),
-            ],
-            graph_generation: 0,
-            epoch: 0,
-            frame: 0,
+        let previous = patch.inputs.each_ref().map(|e| {
+            self.config
+                .inputs
+                .get(e.input_index)
+                .map(|i| EqSettings::from_input(e.input_index, i))
+                .ok_or("EQ input index")
+        });
+        let [a, b] = previous;
+        crate::live_eq::prepare_detached(
             patch,
-            banks,
-            instance: self.instance,
-            base_generation: self.eq_generation,
-            generation: next,
-            elapsed: 0,
-            duration: (self.config.sample_rate as u64).div_ceil(200).max(2),
-            finished: noop,
-            noop,
-            changed,
-        }))
+            [a?, b?],
+            self.config.sample_rate,
+            self.inputs.len(),
+            self.instance,
+            self.eq_generation,
+        )
     }
+
     /// On failure ownership stays with caller. No allocation or destruction.
     pub fn apply_eq(&mut self, prepared: &mut Option<Box<PreparedEq>>) -> Result<(), &'static str> {
         if self.fault {

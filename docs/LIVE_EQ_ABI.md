@@ -84,3 +84,28 @@ feature with integration-test crates that declare their own global allocator.
 Focused checks: `cargo test --locked --test live_eq --test ffi_eq --test render_allocation`.
 Normal checks and device-free controls remain in [VALIDATION](VALIDATION.md).
 Physical audio, listening, acoustic acceptance and measured deadlines remain separate.
+
+## Detached context extension
+
+The optional `shr_pa_eq_context_v1_*` exports remove active-owner access from
+controller preparation and readback. Resolve all six symbols together. Create an
+opaque context offRT, then capture exactly two selected input identities on the
+source owner into that existing allocation. Capture copies fixed-size settings,
+current/target distinction, fault/progress, owner instance, generations and source
+epoch/frame; it neither allocates nor destroys storage. Invalid capture leaves
+the previous observation unchanged. Capture/status still require exclusive access
+to their arguments; the context must be transferred, not concurrently shared.
+
+Detached prepare/readback access only the context. They can run while the active
+owner renders, or after it has been destroyed. Preparation accepts either ordering
+of the same two selected identities and rejects other inputs. It returns the
+original prepared-token type. The original apply operation remains authoritative:
+instance, graph/EQ generations, epoch, exact frame, fault and occupied retirement
+checks still apply. A snapshot reserves nothing, and successful preparation does
+not guarantee later application. Context destruction and token destruction remain
+offRT. The original seven-symbol interface and JSON readback format are unchanged.
+
+Focused checks are `cargo test --locked --test ffi_eq --test live_eq --test
+render_allocation`. These cover observation persistence, reordered inputs, stale
+owner/generation refusal and allocation-free repeated capture. GigPies owns source
+execution integration and controller-stall acceptance under GP-H1.

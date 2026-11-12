@@ -443,3 +443,27 @@ fn eq_extension_apply_endpoint_busy_stale_fault_and_retirement_never_allocate_or
         shr_pa_v2_destroy(h);
     }
 }
+
+#[test]
+fn detached_eq_capture_reuses_storage_without_allocation_or_destruction() {
+    use shr_pa::{ffi_eq::*, ffi_v2::*, graph::GraphConfig};
+    unsafe {
+        let json = serde_json::to_vec(&GraphConfig::stereo(vec![])).unwrap();
+        let fresh = shr_pa_v2_prepare(json.as_ptr(), json.len() as u32, 2);
+        let mut h = std::ptr::null_mut();
+        let mut retired = std::ptr::null_mut();
+        assert_eq!(shr_pa_v2_apply(&mut h, fresh, &mut retired, 1, 0), 0);
+        let context = shr_pa_eq_context_v1_create();
+        let mut status = ShrPaEqStatusV1::default();
+        COUNT.with(|c| c.set(Some(0)));
+        for _ in 0..100 {
+            assert_eq!(shr_pa_eq_context_v1_capture(h, context, 0, 1), 0);
+            assert_eq!(shr_pa_eq_context_v1_status(context, &mut status), 0);
+            assert_eq!(shr_pa_eq_context_v1_capture(h, context, 0, 0), -1);
+        }
+        let count = COUNT.with(|c| c.replace(None).unwrap());
+        assert_eq!(count, 0);
+        shr_pa_eq_context_v1_destroy(context);
+        shr_pa_v2_destroy(h);
+    }
+}

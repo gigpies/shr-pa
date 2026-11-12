@@ -25,9 +25,6 @@ impl EqSettings {
             geq_db: input.geq_db,
         }
     }
-    pub(crate) fn matches(&self, i: &Input) -> bool {
-        *self == Self::from_input(self.input_index, i)
-    }
     pub(crate) fn install(&self, i: &mut Input) {
         i.eq_enabled = self.eq_enabled;
         i.eq = self.eq;
@@ -140,4 +137,50 @@ pub struct EqProgress {
     pub remaining: u64,
     pub retirement_occupied: bool,
     pub eligible: bool,
+}
+
+/// Coefficient construction from a copied owner context, with no active graph access.
+pub(crate) fn prepare_detached(
+    patch: EqPatch,
+    previous: [EqSettings; 2],
+    rate: u32,
+    count: usize,
+    instance: u64,
+    base_generation: u64,
+) -> Result<Box<PreparedEq>, &'static str> {
+    patch.validate(rate, count)?;
+    let previous = patch.inputs.each_ref().map(|e| {
+        previous
+            .iter()
+            .find(|p| p.input_index == e.input_index)
+            .cloned()
+            .ok_or("EQ context input identity")
+    });
+    let [a, b] = previous;
+    let previous = [a?, b?];
+    let generation = base_generation
+        .checked_add(1)
+        .ok_or("EQ generation exhausted")?;
+    let banks = [patch.inputs[0].bank(rate)?, patch.inputs[1].bank(rate)?];
+    let changed = [
+        patch.inputs[0] != previous[0],
+        patch.inputs[1] != previous[1],
+    ];
+    let noop = !changed[0] && !changed[1];
+    Ok(Box::new(PreparedEq {
+        previous,
+        graph_generation: 0,
+        epoch: 0,
+        frame: 0,
+        patch,
+        banks,
+        instance,
+        base_generation,
+        generation,
+        elapsed: 0,
+        duration: (rate as u64).div_ceil(200).max(2),
+        finished: noop,
+        noop,
+        changed,
+    }))
 }

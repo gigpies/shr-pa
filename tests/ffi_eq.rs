@@ -158,3 +158,62 @@ fn optional_abi_null_alignment_size_and_managed_span_refusals_preserve_ownership
         shr_pa_v2_destroy(h);
     }
 }
+
+#[test]
+fn detached_context_survives_render_and_owner_destruction_with_stale_fences() {
+    unsafe {
+        let c = GraphConfig::stereo(vec![]);
+        let h = active(&c, 0);
+        let other = active(&c, 48);
+        let context = shr_pa_eq_context_v1_create();
+        let mut observed = ShrPaEqStatusV1::default();
+        assert_eq!(shr_pa_eq_context_v1_status(context, &mut observed), -1);
+        assert_eq!(shr_pa_eq_context_v1_capture(h, context, 1, 0), 0);
+        assert_eq!(shr_pa_eq_context_v1_capture(h, context, 0, 0), -1);
+        assert_eq!(shr_pa_eq_context_v1_status(context, &mut observed), 0);
+        assert_eq!(observed.next_frame, 0);
+        let mut before = [0; 65536];
+        let n = shr_pa_eq_context_v1_readback(context, before.as_mut_ptr(), 65536);
+        assert!(n > 0);
+        let mut direct = [0; 65536];
+        assert_eq!(
+            shr_pa_eq_v1_readback(h, 1, 0, direct.as_mut_ptr(), 65536),
+            n
+        );
+        assert_eq!(before, direct);
+        let patch = EqPatch {
+            version: 1,
+            inputs: [
+                EqSettings::from_input(0, &c.inputs[0]),
+                EqSettings::from_input(1, &c.inputs[1]),
+            ],
+        };
+        let json = serde_json::to_vec(&patch).unwrap();
+        let input = [0.0; 96];
+        let mut output = [0.0; 96];
+        assert_eq!(
+            shr_pa_v2_process(h, input.as_ptr(), output.as_mut_ptr(), 2, 2, 48, 1, 0),
+            0
+        );
+        // Preparation after advancement uses no active handle; reordered selection works.
+        let mut p = shr_pa_eq_context_v1_prepare(context, json.as_ptr(), json.len() as u32, 48);
+        assert!(!p.is_null());
+        assert_eq!(shr_pa_eq_v1_apply(other, &mut p, 1, 48), -4);
+        assert_eq!(shr_pa_eq_v1_apply(h, &mut p, 1, 48), 0);
+        let mut retired = ptr::null_mut();
+        assert_eq!(shr_pa_eq_v1_retire(h, &mut retired), 0);
+        shr_pa_eq_v1_destroy(retired);
+        let mut stale = shr_pa_eq_context_v1_prepare(context, json.as_ptr(), json.len() as u32, 48);
+        assert!(!stale.is_null());
+        assert_eq!(shr_pa_eq_v1_apply(h, &mut stale, 1, 48), -4);
+        shr_pa_eq_v1_destroy(stale);
+        shr_pa_v2_destroy(h);
+        assert_eq!(
+            shr_pa_eq_context_v1_readback(context, direct.as_mut_ptr(), 65536),
+            n
+        );
+        assert_eq!(before, direct);
+        shr_pa_eq_context_v1_destroy(context);
+        shr_pa_v2_destroy(other);
+    }
+}

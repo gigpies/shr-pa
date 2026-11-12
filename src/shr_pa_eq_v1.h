@@ -32,6 +32,20 @@ int32_t shr_pa_eq_v1_retire(ShrPaV2*,ShrPaEqPreparedV1**);
 void shr_pa_eq_v1_destroy(ShrPaEqPreparedV1*);
 /* OffRT; positive byte count excluding NUL on success; output untouched on error. */
 int32_t shr_pa_eq_v1_readback(const ShrPaV2*,uint32_t,uint32_t,uint8_t*,uint32_t);
+/* Optional detached context extension. Resolve the complete set. Create/destroy
+ * offRT; capture/status are bounded and allocate/free nothing. Context access is
+ * exclusive: transfer context ownership, never share it concurrently. Capture
+ * requires exclusive active access; prepare/readback use ONLY the copied context
+ * and may run while the active owner renders. Failure leaves context unchanged.
+ * Prepare returns a v1 token; original apply fences and destruction still apply.
+ * A context is an observation, not a reservation or authorization to apply. */
+typedef struct ShrPaEqContextV1 ShrPaEqContextV1;
+ShrPaEqContextV1 *shr_pa_eq_context_v1_create(void);
+void shr_pa_eq_context_v1_destroy(ShrPaEqContextV1*);
+int32_t shr_pa_eq_context_v1_capture(const ShrPaV2*,ShrPaEqContextV1*,uint32_t,uint32_t);
+int32_t shr_pa_eq_context_v1_status(const ShrPaEqContextV1*,ShrPaEqStatusV1*);
+ShrPaEqPreparedV1 *shr_pa_eq_context_v1_prepare(const ShrPaEqContextV1*,const uint8_t*,uint32_t,uint64_t);
+int32_t shr_pa_eq_context_v1_readback(const ShrPaEqContextV1*,uint8_t*,uint32_t);
 #ifdef __cplusplus
 }
 #endif

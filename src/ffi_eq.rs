@@ -280,7 +280,196 @@ pub unsafe extern "C" fn shr_pa_eq_v1_readback(
                 crate::live_eq::EqSettings::from_input(i, &h.graph.config().inputs[i])
             })
     });
-    let rate = h.graph.config().sample_rate;
+    let snapshot = EqSnapshot {
+        target,
+        current,
+        rate: h.graph.config().sample_rate,
+        count: h.graph.config().inputs.len(),
+        fault: h.graph.fault,
+        status: snapshot_status(h),
+    };
+    unsafe { snapshot_readback(&snapshot, out, capacity) }
+}
+
+fn snapshot_status(h: &ShrPaV2) -> ShrPaEqStatusV1 {
+    let s = h.graph.eq_progress();
+    ShrPaEqStatusV1 {
+        version: 1,
+        size: 64,
+        eligible: s.eligible as u32,
+        retirement_occupied: s.retirement_occupied as u32,
+        graph_generation: h.generation,
+        eq_generation: s.generation,
+        epoch: h.epoch,
+        next_frame: h.next_frame,
+        remaining: s.remaining,
+        instance: h.graph.instance,
+    }
+}
+struct EqSnapshot {
+    target: [crate::live_eq::EqSettings; 2],
+    current: [crate::live_eq::EqSettings; 2],
+    rate: u32,
+    count: usize,
+    fault: bool,
+    status: ShrPaEqStatusV1,
+}
+/// Opaque caller-owned storage. Create/destroy offRT; capture is bounded and
+/// allocation-free. Transfer exclusive ownership before detached controller use.
+pub struct ShrPaEqContextV1 {
+    snapshot: Option<EqSnapshot>,
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shr_pa_eq_context_v1_create() -> *mut ShrPaEqContextV1 {
+    Box::into_raw(Box::new(ShrPaEqContextV1 { snapshot: None }))
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shr_pa_eq_context_v1_destroy(context: *mut ShrPaEqContextV1) {
+    if !context.is_null() {
+        drop(unsafe { Box::from_raw(context) });
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shr_pa_eq_context_v1_capture(
+    h: *const ShrPaV2,
+    context: *mut ShrPaEqContextV1,
+    first: u32,
+    second: u32,
+) -> i32 {
+    let (Some(_), Some(c)) = (span(h, 1), span(context, 1)) else {
+        return INVALID;
+    };
+    let h = unsafe { &*h };
+    if h.overlaps(c)
+        || h.phase != 1
+        || first == second
+        || first as usize >= h.graph.config().inputs.len()
+        || second as usize >= h.graph.config().inputs.len()
+    {
+        return INVALID;
+    }
+    let indices = [first as usize, second as usize];
+    let target =
+        indices.map(|i| crate::live_eq::EqSettings::from_input(i, &h.graph.config().inputs[i]));
+    let current = indices.map(|i| {
+        h.graph
+            .live_eq
+            .as_ref()
+            .filter(|p| !p.finished)
+            .and_then(|p| p.previous.iter().find(|e| e.input_index == i))
+            .cloned()
+            .or_else(|| {
+                h.graph
+                    .eq_aborted
+                    .as_ref()
+                    .and_then(|e| e.iter().find(|e| e.input_index == i))
+                    .cloned()
+            })
+            .unwrap_or_else(|| {
+                crate::live_eq::EqSettings::from_input(i, &h.graph.config().inputs[i])
+            })
+    });
+    unsafe {
+        (*context).snapshot = Some(EqSnapshot {
+            target,
+            current,
+            rate: h.graph.config().sample_rate,
+            count: h.graph.config().inputs.len(),
+            fault: h.graph.fault,
+            status: snapshot_status(h),
+        });
+    }
+    0
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shr_pa_eq_context_v1_status(
+    context: *const ShrPaEqContextV1,
+    out: *mut ShrPaEqStatusV1,
+) -> i32 {
+    let (Some(c), Some(o)) = (span(context, 1), span(out, 1)) else {
+        return INVALID;
+    };
+    if overlaps(c, o) {
+        return INVALID;
+    }
+    let Some(s) = (unsafe { &*context }).snapshot.as_ref() else {
+        return INVALID;
+    };
+    unsafe {
+        out.write(s.status);
+    }
+    0
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shr_pa_eq_context_v1_prepare(
+    context: *const ShrPaEqContextV1,
+    json: *const u8,
+    bytes: u32,
+    frame: u64,
+) -> *mut PreparedEq {
+    let (Some(c), Some(j)) = (span(context, 1), span(json, bytes as usize)) else {
+        return ptr::null_mut();
+    };
+    if overlaps(c, j) || bytes > 32768 {
+        return ptr::null_mut();
+    }
+    let Some(s) = (unsafe { &*context }).snapshot.as_ref() else {
+        return ptr::null_mut();
+    };
+    if s.fault
+        || s.status.eligible != 1
+        || s.status.retirement_occupied != 0
+        || frame < s.status.next_frame
+    {
+        return ptr::null_mut();
+    }
+    let Ok(patch) = EqPatch::parse(
+        unsafe { slice::from_raw_parts(json, bytes as usize) },
+        s.rate,
+        s.count,
+    ) else {
+        return ptr::null_mut();
+    };
+    let Ok(mut p) = crate::live_eq::prepare_detached(
+        patch,
+        s.target.clone(),
+        s.rate,
+        s.count,
+        s.status.instance,
+        s.status.eq_generation,
+    ) else {
+        return ptr::null_mut();
+    };
+    if !p.noop && frame.checked_add(p.duration).is_none() {
+        return ptr::null_mut();
+    }
+    p.graph_generation = s.status.graph_generation;
+    p.epoch = s.status.epoch;
+    p.frame = frame;
+    Box::into_raw(p)
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shr_pa_eq_context_v1_readback(
+    context: *const ShrPaEqContextV1,
+    out: *mut u8,
+    capacity: u32,
+) -> i32 {
+    let (Some(c), Some(o)) = (span(context, 1), span(out, capacity as usize)) else {
+        return INVALID;
+    };
+    if overlaps(c, o) {
+        return INVALID;
+    }
+    let Some(s) = (unsafe { &*context }).snapshot.as_ref() else {
+        return INVALID;
+    };
+    unsafe { snapshot_readback(s, out, capacity) }
+}
+unsafe fn snapshot_readback(s: &EqSnapshot, out: *mut u8, capacity: u32) -> i32 {
+    let rate = s.rate;
+    let current = &s.current;
+    let target = &s.target;
     let Ok(current_banks) = current
         .iter()
         .map(|s| s.coefficients(rate))
@@ -302,11 +491,11 @@ pub unsafe extern "C" fn shr_pa_eq_v1_readback(
         });
         format!("fnv1a64:{hash:016x}")
     }
-    let value = serde_json::json!({ "version": 1, "sample_rate": rate, "fault_latched": h.graph.fault,
-        "settled": !h.graph.fault && h.graph.eq_progress().remaining == 0,
+    let value = serde_json::json!({ "version": 1, "sample_rate": rate, "fault_latched": s.fault,
+        "settled": !s.fault && s.status.remaining == 0,
         "denominator": "1+a1*z^-1+a2*z^-2", "coefficient_order": ["b0","b1","b2","a1","a2"],
-        "graph_generation": h.generation, "eq_generation": h.graph.eq_generation,
-        "current_fingerprint": fingerprint(&current), "target_fingerprint": fingerprint(&target),
+        "graph_generation": s.status.graph_generation, "eq_generation": s.status.eq_generation,
+        "current_fingerprint": fingerprint(current), "target_fingerprint": fingerprint(target),
         "current": current, "target": target, "current_coefficients": current_banks, "target_coefficients": target_banks });
     let Ok(bytes) = serde_json::to_vec(&value) else {
         return INVALID;
