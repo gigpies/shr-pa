@@ -43,6 +43,33 @@ again. Crossover mode **Layout LR24** uses the layout's filters; **Independent**
 exposes separate HP/LP edges. Switching back discards custom edge settings, so
 save them first. [Full crossover controls](reference/RUNNING.md#crossover-controls).
 
+## Test signals and measurement
+
+The standalone generator provides **pink noise, white noise, sine, impulse and
+logarithmic sweep**. To render a pink-noise preview into a file without opening
+an audio device, use the session created above:
+
+```sh
+"$SHR_PA_BIN" render "$SESSION/preset.json" pink "$SESSION/pink.wav" 5 --unmute --level=-30
+```
+
+This writes six logical output channels through the preset's processing; it does
+not play the file or measure the room. Use `noise`, `sine:100`, `impulse` or `sweep`
+in place of `pink` for the other sources. Keep generated audio outside Git.
+For an explicitly configured standalone live session, source selection happens at
+startup with `--signal=SOURCE`; the command reference explains
+[level and off/on controls](reference/RUNNING.md). Generator availability does
+not make the integrated GigPies microphone capture workflow available.
+
+Offline analysis can compare a reference and microphone recording, propose
+speaker delay/polarity, predict crossover summation and suggest bounded output EQ.
+Repeated-sweep analysis also supports a defined microphone correction format.
+These tools produce reviewable proposals; they do not run a physical setup session.
+Use [offline setup](OFFLINE_SETUP.md) for input formats and limits, or
+[Desk measurement review](https://github.com/gigpies/shr-desk/blob/main/docs/PA_MEASUREMENT.md)
+for the integrated software/imported-evidence workflow. Real microphone acquisition
+and measured before/after speaker verification remain unfinished.
+
 ## Save and recall
 
 **s** exports JSON; press twice to confirm replacement. In the library, type

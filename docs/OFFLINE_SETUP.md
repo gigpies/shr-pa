@@ -32,15 +32,28 @@ operations keep their original schema and conservative correlation thresholds.
   per position). The review has at most 128 predicted display bins total,
   uniformly selecting endpoints and intermediate bins per position when needed;
   analysis still uses every qualified bin. Only matched bins with coherence >=0.98 and relative magnitude
-  between 0.1 and 10 contribute; require eight bins spanning at least 200 Hz.
+  between 0.1 and 10 contribute; require eight bins spanning at least 200 Hz
+  **or one octave**. The octave alternative admits low-frequency sub/top overlap
+  without requiring unrelated higher frequencies. Eight bins confined to 80–100 Hz
+  alone still refuse; this is not single-tone peak seeking.
   Search integer delay differences -480..480 and both polarities, minimizing
   wrapped relative phase RMS. Boundary solutions and RMS above 15 degrees refuse.
+  A competing local minimum within 3 degrees RMS of the best fit refuses as
+  `ambiguous_overlap_delay`, including opposite-polarity and boundary alternatives.
+  Adjacent integer samples (within one sample of the best, same polarity) belong
+  to the same minimum rather than a separate delay solution. This margin is a
+  conservative model-selection rule, not a microphone accuracy specification.
   All positions must agree on the exact sample/polarity correction. Predictions
   are complex sums of measured transfers after the proposed changes, not fresh
   measurements. Frequency-dependent phase that does not fit this model refuses.
   Correlation arrival includes crossover/filter behavior; it is not independently
   established acoustic travel time. Strong coherent reflections can still be ambiguous. No arbitrary phase filter,
-  fractional delay or longer output delay is introduced.
+  fractional delay or longer output delay is introduced. Production-Graph regressions
+  exercise 80/100/120 Hz LR24 crossovers with the existing 64-bin repeated-sweep
+  extraction, independently rendered before/after sums, exact protection/configuration
+  preservation and already-aligned no-change. Synthetic results do not qualify a
+  physical room; repeatable reflections and systematic phase errors can still fit
+  this limited model.
 - `eq_propose`: `configuration_revision`, `configuration`, `positions` (one to four
   measurement results of the same output, distinct IDs/positions, shared source,
   map, reference, offset, rate and configuration), and `target` below. Returns

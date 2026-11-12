@@ -1,4 +1,4 @@
-# Implementation roadmap — DriveRack functions in 2×6
+# Implementation roadmap — standalone PA2 functions
 
 ## Configurable owner increment — 2026-10-05
 
@@ -8,10 +8,12 @@ LR24 stereo three/four-way and 4×8 references. Existing standalone fixed preset
 and v1 bytes/semantics remain supported. This supersedes earlier fixed-2×6-only
 ordering and deferral of all matrix/configurable embedding below. Scope here is
 software implementation; physical I/O, acoustic/true-peak protection and
-measurement remain unqualified or unavailable as documented.
+physical measurement remain unqualified or unavailable as documented. Offline
+measurement and GigPies software review are implemented; see [current capabilities](STATUS.md).
 
 
-**Current scope: two program inputs, six outputs, one separate setup microphone.**
+**Standalone reference: two program inputs, six outputs and a planned separate
+setup microphone. Configurable GigPies embedding has independent dimensions.**
 The [DriveRack function map](DRIVERACK_MAP.md) is the complete inventory for the
 PA2 reference: processing, setup, measurement, presets, operation, remote control,
 maintenance and hardware differences. The first engine, offline tools and direct ALSA slice now work; see [status](STATUS.md).
@@ -24,9 +26,9 @@ entire acceptance scope is satisfied.
 Stages describe feature groups, not a requirement to finish hardware qualification
 before DSP work. P2 and initial P3/P7 work proceed independently of P1. Keep all
 mapped functions visible as work progresses. LR24 is the first/default crossover.
-Independent BW6–48 and LR12/24/36/48 edges now work in D08. Matrix routing,
-advanced patching, eight-point positional RTA and the later nine-channel layout
-are [future work](FUTURE.md).
+Independent BW6–48 and LR12/24/36/48 edges now work in D08. Configurable
+weighted routing is delivered through C-PA v2. Extended standalone patching,
+eight-point positional RTA and other layouts remain [future work](FUTURE.md).
 
 ## P0 — foundation (done)
 
@@ -124,7 +126,10 @@ generator level selection now has [evidence](verification/0009-generator-level.m
 In-session level edits now have [evidence](verification/0010-runtime-generator-level.md).
 Runtime off/on now restores mapped capture with a bounded crossfade; see
 [capture restoration evidence](verification/0011-generator-capture-restore.md).
-Changing source type during a session and the measurement/analysis path remain pending.
+Sine, impulse and logarithmic sweep sources also work. Changing source type
+during a session remains pending. The [offline analyzer](MEASUREMENT_V1.md)
+and [calibrated repeated-sweep extraction](OFFLINE_SETUP.md) are implemented;
+physical synchronized acquisition and the dedicated measurement RTA remain pending.
 
 Covers M01–M03, H03. Capture one setup microphone on the same hardware clock;
 keep it isolated from PA playback. Add calibration, signal level and clipping checks.
@@ -153,12 +158,12 @@ and amplifiers with units, provenance and validation. Allow manual/unlisted equi
 Apply speaker EQ, crossover, polarity, delay and limiter settings through the same
 validated configuration path; do not invent manufacturer tunings.
 
-Implement the [delay/polarity alignment stage](PHASE_ALIGNMENT.md) here using P4
-measurements and existing pair controls. Keep unchanged settings eligible, reject
-unsupported or ambiguous corrections, and verify the combined response at several
-sequential positions. Keep this stage separate from AutoEQ. SHR PA owns the finished
-PA module intended for GigPies integration; that integration is a later task and
-does not gate standalone development or testing.
+The [delay/polarity alignment stage](PHASE_ALIGNMENT.md) already produces
+reviewable independent-output proposals from offline measurements, including
+crossover-overlap fitting and predicted sums. GigPies software review is integrated.
+Remaining work includes physical acquisition and fresh combined-response checks
+at several sequential positions. Keep unchanged settings eligible and refuse
+unsupported or ambiguous corrections. This stage remains separate from AutoEQ.
 
 For level balancing, measure the relevant speakers/bands, estimate differences,
 and either guide physical adjustment or apply bounded, visible trims. Check noise,

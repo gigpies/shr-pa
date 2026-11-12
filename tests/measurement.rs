@@ -563,6 +563,165 @@ fn crossover_overlap_uses_phase_model_and_independent_corrected_render() {
     assert_eq!(propose_overlap(&c, "1", &[pair]).unwrap().status, "refused");
 }
 #[test]
+fn low_frequency_crossover_sweeps_align_and_verify_actual_sum() {
+    use shr_pa::sweep::{SweepSpec, extract_repeated};
+    let spec = SweepSpec {
+        start_hz: 20.,
+        end_hz: 20000.,
+        sweep_samples: 32768,
+        total_samples: 65536,
+        amplitude: 0.03,
+    };
+    let x = spec.excitation().unwrap();
+    for crossover in [80., 100., 120.] {
+        let c = GraphConfig::stereo(vec![crossover]);
+        let before = render(c.clone(), &x);
+        let transfer = |id: &str, output, y: Vec<f64>| {
+            extract_repeated(&meta(id, output), &spec, &x, &vec![y; 4], None)
+                .unwrap_or_else(|e| panic!("{crossover} {id}: {e}"))
+                .transfer
+        };
+        // Model a low driver arriving 96 samples later with reversed polarity.
+        let pair = PositionPair {
+            anchor: transfer("high", 0, before[0].clone()),
+            target: transfer("low", 2, shifted(&before[2], 96, -0.8)),
+        };
+        let overlap: Vec<_> = pair
+            .anchor
+            .spectrum
+            .iter()
+            .zip(&pair.target.spectrum)
+            .filter(|(a, b)| {
+                a.coherence >= 0.98
+                    && b.coherence >= 0.98
+                    && (0.1..=10.).contains(&(a.magnitude / b.magnitude))
+            })
+            .map(|(a, _)| a.frequency_hz)
+            .collect();
+        assert!(overlap.len() >= 8);
+        let (low_hz, high_hz) = (overlap[0], *overlap.last().unwrap());
+        assert!(
+            high_hz - low_hz < 200.,
+            "Witness must fail the old absolute span gate"
+        );
+        assert!(high_hz / low_hz >= 2.);
+        eprintln!(
+            "{crossover} Hz crossover: {} overlap bins, {low_hz:.2}..{high_hz:.2} Hz",
+            overlap.len()
+        );
+        let p = propose_overlap(&c, "1", std::slice::from_ref(&pair)).unwrap();
+        assert_eq!(p.status, "proposed", "{crossover}: {}", p.reason);
+        assert_eq!(p.added_latency_samples, 96);
+        let next = p.candidate_configuration(&c, "1").unwrap();
+        let mut expected = c.clone();
+        expected.outputs[0].processing.delay_ms = 2.;
+        expected.outputs[2].processing.inverted = true;
+        assert_eq!(next, expected, "Only delay/polarity may change");
+        let after = render(next.clone(), &x);
+        let low = shifted(&after[2], 96, -0.8);
+        let sum: Vec<_> = after[0].iter().zip(&low).map(|(a, b)| a + b).collect();
+        let combined = transfer("combined", 0, sum);
+        let before_low = shifted(&before[2], 96, -0.8);
+        let before_sum = before[0]
+            .iter()
+            .zip(before_low)
+            .map(|(a, b)| a + b)
+            .collect();
+        let combined_before = transfer("before-combined", 0, before_sum);
+        let predicted = predicted_sum(&pair, &p).unwrap();
+        let mut checked = 0;
+        let mut center_checked = 0;
+        for bin in combined
+            .spectrum
+            .iter()
+            .filter(|b| b.frequency_hz >= crossover / 2. && b.frequency_hz <= crossover * 2.)
+        {
+            checked += 1;
+            let previous = combined_before
+                .spectrum
+                .iter()
+                .find(|p| p.frequency_hz == bin.frequency_hz)
+                .unwrap();
+            assert!(bin.magnitude + 1e-5 >= previous.magnitude);
+            if (0.9..=1.1).contains(&(bin.frequency_hz / crossover)) {
+                center_checked += 1;
+                assert!(20. * (bin.magnitude / previous.magnitude).log10() > 1.);
+            }
+            let prediction = predicted
+                .iter()
+                .find(|p| p.frequency_hz == bin.frequency_hz)
+                .unwrap();
+            assert!((20. * (bin.magnitude / prediction.magnitude).log10()).abs() < 0.01);
+            let a = pair
+                .anchor
+                .spectrum
+                .iter()
+                .find(|p| p.frequency_hz == bin.frequency_hz)
+                .unwrap();
+            let b = pair
+                .target
+                .spectrum
+                .iter()
+                .find(|p| p.frequency_hz == bin.frequency_hz)
+                .unwrap();
+            // Independent constructive-sum bound, not another copy of the fitter.
+            assert!((bin.magnitude - a.magnitude - b.magnitude).abs() < 1e-5);
+        }
+        assert!(checked >= 8 && center_checked >= 1);
+        let aligned = PositionPair {
+            anchor: transfer("aligned-high", 0, after[0].clone()),
+            target: transfer("aligned-low", 2, low),
+        };
+        assert_eq!(
+            propose_overlap(&next, "1", &[aligned]).unwrap().status,
+            "no_change"
+        );
+    }
+}
+
+#[test]
+fn low_frequency_overlap_refuses_narrow_or_aliased_evidence() {
+    let x = noise();
+    let template = measure("analytic", 0, &x, &x);
+    // Explicit analytic transfers isolate evidence geometry from acquisition.
+    // Closely clustered samples near odd multiples of 50 Hz cannot distinguish
+    // 17 samples from -463 samples plus a polarity flip within the fit tolerance.
+    let make = |frequencies: &[f64]| {
+        let mut anchor = template.clone();
+        anchor.capture.id = "analytic-a".into();
+        anchor.options.band_hz = [40., 200.];
+        anchor.spectrum = frequencies
+            .iter()
+            .map(|&frequency_hz| SpectralBin {
+                frequency_hz,
+                magnitude: 1.,
+                phase_radians: 0.,
+                coherence: 1.,
+            })
+            .collect();
+        let mut target = anchor.clone();
+        target.capture.id = "analytic-b".into();
+        target.capture.output_index = 1;
+        for b in &mut target.spectrum {
+            b.phase_radians = -2. * PI * b.frequency_hz * 17. / 48000.;
+        }
+        PositionPair { anchor, target }
+    };
+    let narrow = make(&[80., 83., 86., 89., 92., 95., 98., 100.]);
+    let aliased = make(&[50., 50.01, 50.02, 50.03, 150., 150.01, 150.02, 150.03]);
+    for (pair, reason) in [
+        (narrow, "insufficient_coherent_overlap"),
+        (aliased, "ambiguous_overlap_delay"),
+    ] {
+        let proposal = propose_overlap(&config(), "1", &[pair]).unwrap();
+        assert_eq!(proposal.status, "refused");
+        assert_eq!(proposal.reason, reason);
+        assert!(proposal.changes.is_empty());
+        assert!(proposal.candidate_configuration(&config(), "1").is_err());
+    }
+}
+
+#[test]
 fn eq_fitter_independent_production_render_and_refusals() {
     use shr_pa::auto_eq::{Target, fit};
     let x = noise();

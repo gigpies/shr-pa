@@ -1,13 +1,16 @@
-# DriveRack function map — 2 inputs × 6 outputs
+# DriveRack function map — PA2 reference
 
-**Reference baseline: dbx DriveRack PA2. The initial DSP/offline/ALSA slice is
-implemented; the inventory below includes substantial remaining work.** This maps the PA2's documented functions, including setup,
+**Reference baseline: dbx DriveRack PA2. Processing, generators and offline
+measurement/review tools are implemented; complete physical setup remains open.** This maps the PA2's documented functions, including setup,
 operation and maintenance. It does not claim coverage of every other DriveRack
 model or identical proprietary algorithms.
 
-The current scope is a fixed 2×6 processor. Matrix routing, advanced patching,
-eight-point positional measurement and the later nine-channel arrangement are
-in [future work](FUTURE.md). They are not dependencies of this plan.
+The PA2 comparison and standalone editor use two inputs and six outputs.
+[Configurable embedding](EMBEDDING_V2.md), used by GigPies, already supports
+dynamic inputs, weighted routing and independent outputs; 2×6 is not its capacity
+limit. Eight-point positional RTA and other extended workflows remain in
+[future work](FUTURE.md). See [what works today](STATUS.md) before using the
+requirement tables below as a feature checklist.
 
 ## Sources and reading guide
 
@@ -20,8 +23,9 @@ Also checked: [product specifications](https://dbxpro.com/en-US/products/drivera
 and [Harman's power-up mute explanation](https://help.harmanpro.com/en_US/driverack-pa2/driverack-pa2-powerup-mute-state).
 
 The tables preserve complete target requirements. They are not current CLI/API
-contracts: for example, distance entry, limiter bypass/knee and automatic EQ
-history remain planned. Use [DSP](DSP.md) for implemented parameter ranges and
+contracts: for example, limiter bypass/knee and automatic input-EQ history
+remain planned. Distance entry and offline alignment/EQ proposals are implemented;
+[offline setup](OFFLINE_SETUP.md) owns their supported units and exact limits. Use [DSP](DSP.md) for implemented parameter ranges and
 the completion summary below for partial coverage.
 
 Each row has a stable ID, a source location, our implementation plan, and an
@@ -60,8 +64,8 @@ Provide mono-input and stereo-input variants where applicable. Bass may be stere
 or a mono sum. For a single mono sub, use L-L and mute L-R. The implemented sum is `(processed_L + processed_R) / 2`, with documented gain. Its scaling is our design
 choice, not a claim about undocumented dbx coefficients.
 
-These are fixed configurations and band options within 2×6, not a user-editable
-routing matrix. Preserve the manual's preset families without copying unverified
+These are the standalone fixed configurations and band options within 2×6.
+The configurable embedding has its own weighted routing graph. Preserve the manual's preset families without copying unverified
 vendor speaker tunings or assuming their crossover frequencies suit our speakers.
 
 ## B. Processing
@@ -140,7 +144,9 @@ The requested [phase/delay alignment extension](PHASE_ALIGNMENT.md) adds a
 reference/mic transfer-function measurement in P4 and a delay/polarity proposal
 stage in P5, using D10 and supporting M09. It is our additional development task,
 not an assertion of automatic phase alignment in the PA2 reference. SHR PA owns
-this work for its standalone processor and eventual GigPies module integration.
+this work. The offline analyzer and proposal stage already have GigPies software
+review integration; synchronized physical acquisition and acoustic acceptance
+remain pending.
 
 ## D. Presets, controls and system functions
 
@@ -207,7 +213,10 @@ now use a bounded 5 ms ramp; see [runtime evidence](verification/0010-runtime-ge
 Runtime off/on now crossfades to/from mapped capture; see
 [capture restoration evidence](verification/0011-generator-capture-restore.md).
 M03 remains partial: changing source type during a session is pending, and
-physical transition acceptance remains unmeasured. RTA/setup-mic workflows remain pending.
+physical transition acceptance remains unmeasured. Physical RTA/setup-mic
+workflows remain pending; offline reference/mic analysis, overlap alignment and
+calibrated repeated-sweep EQ proposals are implemented. Their review integration
+is described in [offline setup](OFFLINE_SETUP.md).
 Live transactions, filter/delay transitions and compact module controls extend
 D11/O01/O04/O05; see [new evidence](verification/0004-live-controls.md).
 The [preset/EQ slice](verification/0005-preset-library.md) extends D01–D03/D11

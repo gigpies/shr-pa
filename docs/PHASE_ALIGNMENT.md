@@ -1,17 +1,88 @@
 # PA measurement and alignment
 
-**Offline owner increment implemented; capture and acoustic acceptance pending.**
+## PA-ALIGN — measured crossover alignment
 
-The 2026-10-08 [measurement v1 contract](MEASUREMENT_V1.md) adds a standalone
-bounded sample-pair analyzer and conservative multi-position review proposals.
-It measures actual configurable Graph paths in synthetic tests, preserves exact
-base configuration/protection, and never applies settings. Current v2 outputs have
-independent 0..10 ms delay/polarity; the fixed linked-pair table below is historical.
-GP20 software capture/review integration exists. Synchronized physical setup-mic
-capture, physical combined-response checks and acoustic acceptance remain pending.
-The additive [offline setup](OFFLINE_SETUP.md) contract extends crossover review;
-[PA-SETUP evidence](archive/pa-setup-2026-10-29.md) owns the completed software increment. The original task below continues to describe
-those broader acceptance requirements.
+State: **IN PROGRESS — low-frequency overlap increment implemented and
+software-validated. Physical capture and acoustic acceptance remain open.**
+Owner: SHR PA. This is the single module task card for alignment; shared capture
+and operator workflow belong to GigPies
+[GP-PA-MEASURE](https://github.com/gigpies/gigpies/blob/main/docs/development/MODULE_IMPLEMENTATION_PLAN.md#gp-pa-measure--physical-measurement-workflow).
+
+### Working baseline
+
+Pink/white noise, sine, impulse and log-sweep generation already exist. The
+[measurement v1 analyzer](MEASUREMENT_V1.md) computes reference/mic magnitude,
+phase, coherence and integer arrival. The [offline setup contract](OFFLINE_SETUP.md)
+adds crossover-overlap delay/polarity search, predicted sums, repeated-sweep
+extraction, microphone magnitude correction and bounded output-EQ proposals.
+Configurable outputs already have independent delay/polarity; GP20 and Desk
+already provide software capture/review and explicit muted application. These
+are implemented features, not tasks to build again. Their physical acquisition
+and acoustic usefulness are separate acceptance gates.
+
+### Implementation sequence and acceptance
+
+1. **Low-frequency overlap (implemented, software-validated).** Replace the fixed
+   200 Hz usable-overlap requirement with a justified frequency-relative rule
+   and ambiguity checks. Cover realistic sub/top crossovers through production
+   Graph DSP, known delay and polarity, unchanged alignment, sparse/poor evidence,
+   competing solutions and conflicting positions. Verify independently rendered
+   before/after summation over the overlap, not just the optimizer's own score.
+   Preserve exact base configuration, output protection, existing 0–10 ms range,
+   integer samples and review-only application. Do not introduce dependencies.
+2. **Independent combined-response assessment.** Define owner input/result for
+   separately measured unchanged and corrected combined responses at common
+   positions/reference origins. Compare useful overlap response, deterioration,
+   timing and confidence; distinguish measured confirmation from predicted sums.
+   Return confirmed/inconclusive/rejected evidence without applying settings.
+   Test partial captures, changed basis, nonlinear/reflective paths and positions
+   that disagree. Keep improvements local to the measured positions.
+3. **Physical acceptance contribution.** After the host capture workflow is ready,
+   use the procedure below for an explicitly authorized rig session. Record
+   repeatable sub/top and multiway results, unchanged controls, refusal cases,
+   actual added latency and remaining limits. Do not close this gate using
+   synthetic data, imported timing declarations or a software-only Desk test.
+
+Acceptance checklist:
+
+- [x] Existing transfer analysis, offline sweep/EQ and reviewed alignment proposals.
+- [x] Low-frequency overlap with ambiguity refusal and independent sum regressions.
+- [ ] Fresh combined-response assessment contract and software regressions.
+- [ ] Physical common-origin capture through the owning host workflow.
+- [ ] Multi-position before/after acoustic acceptance with retained failures.
+
+Validation/evidence (2026-11-11): existing software baseline is in
+[PA-SETUP](archive/pa-setup-2026-10-29.md). The updated `overlap_delay` in
+`src/measurement.rs` admits eight qualified bins spanning 200 Hz or one octave,
+and refuses competing local delay/polarity minima within 3 degrees RMS.
+`tests/measurement.rs` exercises production LR24 80/100/120 Hz paths with existing
+64-bin repeated-sweep extraction: each supplies 11 usable bins over less than
+200 Hz and recovers the imposed 96-sample (2 ms) delay plus polarity inversion.
+Independent before/after Graph renders confirm constructive summation and >1 dB
+benefit near those crossover frequencies; reanalysis returns no change. Narrow
+80–100 Hz-only evidence and aliased solutions refuse. Exact configuration equality
+checks preserve all unrelated processing/protection settings.
+
+Checks passed: 27 measurement tests; complete
+[device-free Rust suite](VALIDATION.md#strict-no-device-pa-setup-validation),
+116 passed, zero failed, four explicitly filtered PCM-opening integrations;
+`cargo fmt --all -- --check`; `cargo clippy --locked --all-targets -- -D warnings`;
+five Python script tests; documentation/link checks and `git diff --check`.
+Physical audio, software-null PCM/live-control checks, acoustic/listening trials,
+historical/exhaustive and long-load checks were intentionally not run. No ABI,
+dependency, host-audio or runtime application changes were made.
+
+Next action: specify step 2 against the existing capture/proposal contracts before
+adding an API. Feedback suppression and
+subharmonic synthesis remain separate roadmap features, not alignment prerequisites.
+
+## Original proposal and dated inspection — historical
+
+The following preserves the original request and its then-current inventory.
+Its fixed-pair and missing-analyzer descriptions are historical; use the current
+contracts above for implemented behavior. The physical qualification procedure
+at the end remains applicable.
+
 Recorded on 2026-10-02 from the user's proposal to use a measurement mic and pink
 noise to identify phase problems and correct arrival-time differences with small
 delays. The original proposal below is historical; current software behavior is specified by the linked contracts. It adds no hardware acceptance claim.

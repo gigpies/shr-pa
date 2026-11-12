@@ -500,10 +500,18 @@ fn overlap_delay(a: &Measurement, b: &Measurement) -> Result<(i32, bool), &'stat
                 .map(|y| (x, y))
         })
         .collect();
-    if bins.len() < 8 || bins.last().unwrap().0.frequency_hz - bins[0].0.frequency_hz < 200. {
+    if bins.len() < 8 {
+        return Err("insufficient_coherent_overlap");
+    }
+    let low = bins[0].0.frequency_hz;
+    let high = bins.last().unwrap().0.frequency_hz;
+    // Preserve the broad-band admission, while an octave of low-frequency evidence
+    // can resolve a sub/top crossover without an unrelated absolute 200 Hz span.
+    if high - low < 200. && high / low < 2. {
         return Err("insufficient_coherent_overlap");
     }
     let mut best = (f64::INFINITY, 0_i32, false);
+    let mut scores = [[0.; 961]; 2];
     for delta in -480..=480 {
         for invert in [false, true] {
             let score = bins
@@ -516,6 +524,7 @@ fn overlap_delay(a: &Measurement, b: &Measurement) -> Result<(i32, bool), &'stat
                 })
                 .sum::<f64>()
                 / bins.len() as f64;
+            scores[usize::from(invert)][(delta + 480) as usize] = score.sqrt();
             if score < best.0 {
                 best = (score, delta, invert);
             }
@@ -526,6 +535,23 @@ fn overlap_delay(a: &Measurement, b: &Measurement) -> Result<(i32, bool), &'stat
     }
     if best.1.abs() == 480 {
         return Err("overlap_fit_at_boundary");
+    }
+    // A separate local minimum can be a cycle/polarity alias. Do not confuse
+    // neighboring integer samples in the same basin with a different solution.
+    // The 3 degree margin is a conservative model-selection tolerance, not a
+    // claimed measurement accuracy. Include minima at the search boundaries.
+    for (polarity, curve) in scores.iter().enumerate() {
+        for (i, &rms) in curve.iter().enumerate() {
+            let delta = i as i32 - 480;
+            if polarity == usize::from(best.2) && (delta - best.1).abs() <= 1 {
+                continue;
+            }
+            let local_minimum =
+                (i == 0 || rms <= curve[i - 1]) && (i + 1 == curve.len() || rms <= curve[i + 1]);
+            if local_minimum && rms <= best.0.sqrt() + PI / 60. {
+                return Err("ambiguous_overlap_delay");
+            }
+        }
     }
     Ok((best.1, best.2))
 }

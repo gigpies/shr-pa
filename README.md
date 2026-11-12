@@ -19,9 +19,12 @@ parametric and graphic EQ, compression, limiters, delay, polarity and output mut
 The standalone editor starts offline. Live operation uses explicitly selected
 ALSA devices and starts muted. Presets are generic starting points, not speaker tunings.
 
-**Experimental, 0.2 alpha.** DSP and software integration work; physical speaker
-protection and acoustic alignment remain unqualified. Offline measurement can
-propose delay/polarity changes; complete automatic acoustic setup is unfinished.
+**Experimental, 0.2 alpha.** DSP and software integration work. Pink/white noise,
+sine and sweep generators are available; offline measurement produces reviewable
+delay/polarity and EQ proposals, with GigPies/Desk review integration. Physical
+microphone acquisition is unfinished; acoustic alignment and speaker protection
+still need qualification.
+[Working features and remaining work](docs/STATUS.md).
 
 ## First session
 
