@@ -22,6 +22,42 @@ fn main() {
             return serde_json::to_value(shr_pa::calibration::Calibration::parse(&text, &args[2])?)
                 .map_err(|e| e.to_string());
         }
+        if args.len() == 2
+            && [
+                "--acoustic",
+                "--acoustic-spectrum",
+                "--acoustic-leakage",
+                "--acoustic-eq",
+            ]
+            .contains(&args[0].as_str())
+        {
+            let file = std::fs::File::open(&args[1]).map_err(|e| e.to_string())?;
+            let mut bytes = Vec::new();
+            file.take(65537)
+                .read_to_end(&mut bytes)
+                .map_err(|e| e.to_string())?;
+            if bytes.len() > 65536 {
+                return Err("acoustic request capacity".into());
+            }
+            if args[0] == "--acoustic-eq" {
+                return shr_pa::acoustic_eq::execute(
+                    serde_json::from_slice(&bytes).map_err(|e| e.to_string())?,
+                );
+            }
+            if args[0] == "--acoustic-leakage" {
+                return shr_pa::acoustic::leakage(
+                    serde_json::from_slice(&bytes).map_err(|e| e.to_string())?,
+                );
+            }
+            if args[0] == "--acoustic-spectrum" {
+                return shr_pa::acoustic::compare_spectra(
+                    serde_json::from_slice(&bytes).map_err(|e| e.to_string())?,
+                );
+            }
+            return shr_pa::acoustic::execute(
+                serde_json::from_slice(&bytes).map_err(|e| e.to_string())?,
+            );
+        }
         if args.len() > 1 {
             return Err("usage: shr-pa-measure [request.json|-]".into());
         }

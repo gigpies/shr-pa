@@ -47,7 +47,7 @@ impl SweepSpec {
     }
 }
 // Iterative radix-two DFT: fixed maximum 65536 samples; used only offline.
-fn fft(x: &mut [(f64, f64)], inverse: bool) {
+pub(crate) fn fft(x: &mut [(f64, f64)], inverse: bool) {
     let n = x.len();
     let mut j = 0;
     for i in 1..n {

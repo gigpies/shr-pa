@@ -10,8 +10,10 @@ acceptance. V2 supports dynamic program inputs, weighted DAG routing and indepen
 speaker outputs, EQ/dynamics/delay/polarity and sample protection; v1/standalone
 compatibility remains. [Embedding v2](EMBEDDING_V2.md),
 [owner verification](verification/0017-configurable-embedding.md) and the GigPies
-modular acceptance record own exact evidence. Acoustics and physical protection
-remain unqualified; sample limiting is not true-peak or speaker calibration proof.
+modular acceptance record own exact evidence. Full acoustic and physical-protection
+qualification remains separate; sample
+limiting is not true-peak or speaker calibration proof. Bounded independent-clock
+bench acceptance is owned by GP-PA-MEASURE below.
 
 ## Next work
 
@@ -42,6 +44,22 @@ confirmed source-preserving v2 migration, six-channel 48 kHz float WAV output an
 Historical research, load/thermal tests and physical hardware acceptance were
 intentionally not run. This completes the module contribution; downstream
 integration and GP-H1 acceptance remain separate.
+
+## GP-PA-MEASURE independent-clock contribution
+
+The shared [GP-PA-MEASURE card](https://github.com/gigpies/gigpies/blob/main/docs/development/MODULE_IMPLEMENTATION_PLAN.md#gp-pa-measure--physical-measurement-workflow)
+owns acceptance for the independent USB bench. `acoustic` supplies bounded
+magnitude/arrival observations; `acoustic_eq` supplies a separate uncalibrated,
+cut-only candidate path using production EQ responses. The
+[request and correction limits](OFFLINE_SETUP.md#independent-clock-usb-bench-eq)
+are distinct from synchronized measurement/GP20. Host acquisition, reviewed
+application and fresh physical before/after evidence remain in the shared card.
+
+Publication validation (2026-11-16, Pi5, Rust 1.97.1): all 127 normal Rust
+tests, warnings-denied Clippy, formatting, release build, five Python regressions,
+document links, terminal and software-null live-control checks passed.
+Complete-index publication validation passed. Physical hardware, historical
+research, exhaustive/load tests and evidence renderers were intentionally skipped.
 
 ## Tracking and verification
 

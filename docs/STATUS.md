@@ -30,6 +30,7 @@ and [configurable embedding contract](EMBEDDING_V2.md) for exact behavior.
 | Delay/polarity alignment proposals | The owner compares speaker paths, fits crossover-overlap phase and predicts their sum. It can return a proposed change, no change or refusal; it does not automatically apply settings. Real combined-response verification is pending. |
 | Sweep analysis | Known logarithmic-sweep extraction, impulse evidence, four-repeat coherence and a defined microphone magnitude-correction format exist. Supplied offline recordings do not establish hardware timing or calibration accuracy. |
 | EQ proposals | Conservative output-PEQ fitting, explicit target curves and multi-position review exist. This is an offline proposal tool, not a complete live AutoEQ wizard. |
+| Independent-clock bench EQ | Repeated broadband magnitude observations can select conservative broad cuts with an uncalibrated mic. The [owner request contract](OFFLINE_SETUP.md#independent-clock-usb-bench-eq) declares target, SNR/repeat guards and limits; GigPies owns acquisition, explicit live application and the shared acceptance record. This is separate from synchronized GP20, phase and calibrated SPL. |
 | GigPies/Desk review | Software capture/review and imported calibrated repeated-sweep EQ review use the existing muted prepare/review/commit path. Rearm is explicit; no analysis request starts excitation or opens a microphone. |
 
 See [offline setup](OFFLINE_SETUP.md) for supported operations and limits,
@@ -41,7 +42,7 @@ not imply an automated physical measurement session.
 ## Still to implement or qualify
 
 - Physical synchronized reference/mic acquisition, the measurement RTA display,
-  automated excitation/capture sequencing and measured before/after verification.
+  and representative-position excitation/capture and combined-response verification.
 - Complete setup/level-balancing/AutoEQ wizards and verified speaker/amplifier profiles.
 - Feedback suppression, guided ring-out and subharmonic synthesis.
 - Remaining PA2 compatibility details, including shelf-slope units, limiter

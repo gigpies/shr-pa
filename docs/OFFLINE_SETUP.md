@@ -192,3 +192,41 @@ This produces a complete calibrated repeated-sweep EQ request, with an intention
 separate invented clock origin. It is a compatibility fixture, not calibration or
 acoustic acceptance. The [provider contract](https://github.com/gigpies/gigpies/blob/main/docs/reference/MEASUREMENT_PRODUCER.md#imported-calibrated-sweep-review-explicit-v2)
 owns catalog limits, authority, cancellation and integration behavior.
+
+## Independent-clock USB bench EQ
+
+`shr-pa-measure --acoustic-eq request.json` is a separate magnitude-only
+proposal path. It accepts an uncalibrated microphone; its response coloration and
+single-position room uncertainty remain in the result. It never creates GP20
+capture metadata, coherent phase, a calibration curve, SPL or absolute latency.
+
+The strict request supplies `capture`, zero-based `channel`, three to eight
+ordered nonoverlapping `repeats` frame windows (at least one second each), a
+separate `noise` window, `reference`, `reference_channel`, `reference_window`,
+recorded placement/gain/amp `basis`, the actual `configuration`,
+`configuration_revision`, `output_index` and declared `target` (`flat`,
+`bass_shaped` or `damped_high_frequency`). WAVs are bounded to 60 seconds at
+48 kHz. Use stationary repeated broadband excitation and interior windows;
+independent clocks do not support phase subtraction. Keep the original stereo
+microphone recording and select a channel without summing.
+
+Fixed Hann power spectra estimate third-octave magnitude ratios over 125 Hz–8 kHz.
+Every admitted band requires at least 15 dB signal/background margin and no more
+than 1.5 dB repeat range. At least 12 reliable bands spanning three octaves are
+required. The target level is the median reliable transfer minus the declared
+curve, not a normalization of each capture. The fitter reuses the production
+filter coefficient response. It requires three neighboring excess bands, selects
+at most two broad bell cuts (centers 250–6300 Hz, Q 0.5 or 0.707, up to 3 dB each /
+6 dB total), fills only unused output slots and preserves other processing. Each
+step limits the predicted increase in any reliable band's absolute target error
+to 1 dB; the final RMS improvement must reach 0.25 dB. No boosts or narrow
+null correction. Insufficient improvement returns `no_change`; insufficient
+quality refuses. No-change is a useful decision, not permission to force a cut.
+
+The `SHR-PA-INDEPENDENT-CLOCK-EQ` result retains observations, target, basis,
+predicted errors and a detached candidate configuration. Review it explicitly,
+apply through the host's ordinary muted PA transaction, verify readback, then
+rearm deliberately. Measure fresh before/after responses at unchanged gain and
+position; prediction is not physical verification. Shared implementation and
+physical acceptance live in GigPies
+[GP-PA-MEASURE](https://github.com/gigpies/gigpies/blob/main/docs/development/MODULE_IMPLEMENTATION_PLAN.md#gp-pa-measure--physical-measurement-workflow).

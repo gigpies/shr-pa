@@ -44,7 +44,7 @@ pub struct EqProposal {
     pub verification_required: bool,
 }
 /// Production coefficient response; independent render tests verify the objective.
-fn response(band: EqBand, rate: u32, hz: f64) -> f64 {
+pub(crate) fn response(band: EqBand, rate: u32, hz: f64) -> f64 {
     let [b0, b1, b2, a1, a2] = Biquad::eq(band, rate).coefficients();
     let w = 2. * PI * hz / f64::from(rate);
     let numerator =
