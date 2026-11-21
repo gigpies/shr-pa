@@ -458,3 +458,83 @@ fn abi_alias_shapes_and_versions_refuse_without_writes() {
         shr_pa_v2_destroy(active);
     }
 }
+
+#[test]
+fn feedback_guard_breaks_one_output_loop_and_preserves_other_output() {
+    let mut config = GraphConfig::stereo(vec![]);
+    config.feedback_output = Some(0);
+    let mut graph = Graph::prepare(config).unwrap();
+    graph.rearm().unwrap();
+    let mut loop_delay = [0.; 48];
+    for (i, x) in loop_delay.iter_mut().enumerate() {
+        *x = 0.01 * (std::f64::consts::TAU * i as f64 / 48.).sin();
+    }
+    // Resonant acoustic return: unity gain at 1 kHz, loss away from it.
+    let omega = std::f64::consts::TAU / 48.;
+    let alpha = omega.sin() / 4.;
+    let (mut x1, mut x2, mut r1, mut r2) = (0., 0., 0., 0.);
+    let mut detected = None;
+    let mut tail = 0_f64;
+    for i in 0..24000 {
+        let slot = i % 48;
+        let x = loop_delay[slot] * 1.018;
+        let mut y = [0.; 2];
+        graph.process(&[x, 0.02], &mut y).unwrap();
+        // Couple the simulated speaker after the graph's startup mute ramp.
+        if i >= 480 {
+            let returned =
+                (alpha * (y[0] - x2) + 2. * omega.cos() * r1 - (1. - alpha) * r2) / (1. + alpha);
+            (x2, x1, r2, r1) = (x1, y[0], r1, returned);
+            loop_delay[slot] = returned;
+            assert!((y[1] - 0.02).abs() < 1e-8);
+        }
+        if graph.feedback_hz() > 0. {
+            detected.get_or_insert(i);
+        }
+        if i >= 21600 {
+            tail = tail.max(y[0].abs());
+        }
+    }
+    assert!((graph.feedback_hz() - 1000.).abs() < 4.);
+    assert!(tail < 1e-5, "{tail}");
+    assert_eq!(detected, Some(7679));
+}
+
+#[test]
+fn feedback_guard_leaves_held_instrument_and_vowel_fixtures_alone() {
+    for harmonics in [[1., 0.5, 0.3], [0.4, 1., 0.8], [1., 0.06, 0.02]] {
+        let mut config = GraphConfig::stereo(vec![]);
+        config.feedback_output = Some(0);
+        let mut graph = Graph::prepare(config).unwrap();
+        graph.rearm().unwrap();
+        for i in 0..24000 {
+            let phase = std::f64::consts::TAU * 440. * i as f64 / 48000.;
+            let x = harmonics
+                .iter()
+                .enumerate()
+                .map(|(h, a)| a * ((h + 1) as f64 * phase).sin())
+                .sum::<f64>()
+                * 0.1
+                * (i as f64 / 2400.).min(1.);
+            graph.process(&[x, x], &mut [0.; 2]).unwrap();
+        }
+        assert_eq!(graph.feedback_hz(), 0.);
+    }
+}
+
+#[test]
+fn feedback_extension_preserves_legacy_query_and_checks_output_selection() {
+    let mut c = GraphConfig::stereo(vec![]);
+    c.feedback_output = Some(c.outputs.len());
+    assert!(c.validate().is_err());
+    c.feedback_output = Some(1);
+    unsafe {
+        let h = prepared(&c);
+        assert!(!h.is_null());
+        let mut s = status(h);
+        assert_eq!((s.reserved0, s.reserved1), (0, 0));
+        assert_eq!(shr_pa_v2_feedback_status(h, &mut s, 2, 80), 0);
+        assert_eq!((s.reserved0, s.reserved1), (2, 0));
+        shr_pa_v2_destroy(h);
+    }
+}

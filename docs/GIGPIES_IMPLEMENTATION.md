@@ -15,6 +15,8 @@ qualification remains separate; sample
 limiting is not true-peak or speaker calibration proof. Bounded independent-clock
 bench acceptance is owned by GP-PA-MEASURE below.
 
+The single-output feedback guard contributes to [GP-PA-FEEDBACK](https://github.com/gigpies/gigpies/blob/main/docs/development/MODULE_IMPLEMENTATION_PLAN.md#gp-pa-feedback--one-notch-on-one-output).
+
 ## Next work
 
 Measurement and delay/polarity alignment have one owning task plan:

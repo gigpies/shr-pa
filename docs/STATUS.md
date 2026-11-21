@@ -14,6 +14,7 @@ GigPies. A complete microphone-driven acoustic setup session is still unfinished
 | Routing and output controls | Standalone two inputs/six logical outputs with paired processing; GigPies uses dynamic program inputs, explicit weighted routing and independent speaker outputs. Physical capacity depends on the configured interface. |
 | EQ | 31-band graphic EQ and eight-band bell/shelf parametric EQ; input and speaker EQ banks. Standalone flatten/restore and original tonal curves; prepared live input-EQ extension for embedding. |
 | Dynamics and protection | Compression, sample-peak limiting, reduction/peak/clip meters, ramped mutes and numerical-fault silence. These are implemented DSP protections; amplifier/speaker calibration and acoustic safety are not established. |
+| Feedback | [One automatic notch on one selected C-PA v2 output](EMBEDDING_V2.md#single-output-feedback-notch), validated in a simulated loop. |
 | Delay and polarity | Input delay 0–100 ms and output delay 0–10 ms; independent outputs in configurable embedding, linked band pairs in standalone. Integer-sample resolution, polarity and transitioned edits. Standalone accepts ms/m/cm distance-equivalent entry. |
 | Test generators | Seeded pink/white noise, sine, impulse and logarithmic sweep. Offline rendering and explicitly selected standalone live source; adjustable level and ramped off/on restoring mapped capture. Source type is selected when starting the session. |
 | Standalone operation | Offline terminal editor, six-channel WAV renders, explicit ALSA capture/playback mappings, prepared live edits and fault-stop behavior. Live starts muted. |
@@ -44,7 +45,7 @@ not imply an automated physical measurement session.
 - Physical synchronized reference/mic acquisition, the measurement RTA display,
   and representative-position excitation/capture and combined-response verification.
 - Complete setup/level-balancing/AutoEQ wizards and verified speaker/amplifier profiles.
-- Feedback suppression, guided ring-out and subharmonic synthesis.
+- Multi-filter feedback suppression, guided ring-out and subharmonic synthesis.
 - Remaining PA2 compatibility details, including shelf-slope units, limiter
   bypass/knee modes and automatic input-EQ restore sources.
 - Remaining standalone utility/lockout/remote/update flows, automatic device

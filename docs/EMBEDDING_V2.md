@@ -146,3 +146,23 @@ loads these same fixtures, renders, mutes and swaps ownership. Reproduce it usin
 [fixture commands](../tests/fixtures/cpa/v2/README.md). Run the complete normal
 suite and release/publication checks in [VALIDATION](VALIDATION.md). Physical I/O,
 long load runs, historical auditions and measurement research remain opt-in.
+
+## Single-output feedback notch
+
+Set the optional graph field `feedback_output` to a zero-based speaker output.
+Omit it or set it to null to bypass. Apply either change with the usual muted
+prepare/commit/rearm operation. A freshly prepared graph clears the notch.
+The optional `shr_pa_v2_feedback_status` query reports the one-based output
+(zero means bypass) and the applied center frequency in Hz (zero means listening).
+
+After speaker EQ and before limiting, the guard looks for a nearly sinusoidal
+tone with a stable frequency and rising energy across consecutive 40 ms windows.
+It tracks 180–8000 Hz, capped at 48% of sample rate. On detection it engages one
+prepared −12 dB bell at Q 16 and holds it until graph replacement. Output mute
+interrupts detection. Other outputs and channel settings keep their own processing.
+
+A growing musical tone can trigger the same detector. Fast, slow-growing or
+masked feedback can escape detection. The 48 kHz resonant-loop test detected a
+1 kHz ring in 160 ms and reduced the simulated return below 0.00001 full scale by
+the final 50 ms of a 500 ms run. Three synthetic held-note timbres stayed idle.
+Real-room detection time and false-trigger rates require rehearsal evidence.

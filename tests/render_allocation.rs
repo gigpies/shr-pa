@@ -467,3 +467,22 @@ fn detached_eq_capture_reuses_storage_without_allocation_or_destruction() {
         shr_pa_v2_destroy(h);
     }
 }
+
+#[test]
+fn engaging_the_feedback_cut_and_reading_its_frequency_are_allocation_free() {
+    use shr_pa::graph::{Graph, GraphConfig};
+    let mut config = GraphConfig::stereo(vec![]);
+    config.feedback_output = Some(0);
+    let mut graph = Graph::prepare(config).unwrap();
+    graph.rearm().unwrap();
+    COUNT.with(|c| c.set(Some(0)));
+    for i in 0..9600 {
+        let n = f64::from(i);
+        let x = 0.002 * (n / 4800.).exp() * (std::f64::consts::TAU * n / 48.).sin();
+        graph.process(&[x, x], &mut [0.; 2]).unwrap();
+    }
+    let hz = graph.feedback_hz();
+    let events = COUNT.with(|c| c.replace(None).unwrap());
+    assert_eq!(events, 0);
+    assert!((hz - 1000.).abs() < 4.);
+}

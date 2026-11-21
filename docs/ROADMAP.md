@@ -192,6 +192,8 @@ all configuration paths, cancel/retry/partial rerun, then repeatable venue evide
 
 Covers D04–D05, M08. Both belong to the 2×6 capability plan.
 
+The [single-output v2 notch](EMBEDDING_V2.md#single-output-feedback-notch) implements the initial detection and handling slice. The wider P6 design below remains planned.
+
 Feedback: start with narrowband tracking and persistence/growth evidence in a
 worker, then a bounded command path to twelve notch slots. Implement fixed/live
 allocation, the three width policies, live replacement, clearing, gradual timed

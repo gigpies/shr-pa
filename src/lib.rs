@@ -67,3 +67,5 @@ pub mod sweep;
 pub mod acoustic;
 
 pub mod acoustic_eq;
+
+mod feedback;

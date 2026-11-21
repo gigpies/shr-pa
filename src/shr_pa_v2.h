@@ -52,6 +52,8 @@ int32_t shr_pa_v2_process(ShrPaV2 *handle, const double *input, double *output,
                          uint32_t frames, uint64_t epoch, uint64_t first_frame);
 int32_t shr_pa_v2_status(const ShrPaV2 *handle, ShrPaStatusV2 *output,
                         uint32_t version, uint32_t size);
+/* Extended status: reserved0 = one-based feedback output, reserved1 = applied Hz. */
+int32_t shr_pa_v2_feedback_status(const ShrPaV2 *handle, ShrPaStatusV2 *output, uint32_t version, uint32_t size);
 int32_t shr_pa_v2_capabilities(ShrPaCapabilitiesV2 *output,
                               uint32_t version, uint32_t size);
 /* Controller only, once after worker stops. NULL safe; never destroy an active

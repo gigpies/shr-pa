@@ -49,7 +49,7 @@ Unmapped logical outputs retain their processing and meters.
 The [PA2 function plan](DRIVERACK_MAP.md) follows its manual's processing order
 (printed p. 60). Future feedback notches follow input PEQ, and subharmonic mix
 precedes compression. A separate setup mic will feed analysis only; bounded
-program taps will feed feedback detection. Neither path exists in 0.2 alpha.
+program taps are planned for standalone feedback detection. The configurable v2 graph already provides a [single-output notch](EMBEDDING_V2.md#single-output-feedback-notch) immediately before output limiting.
 The current generator replaces input before metering/processing. Its optional
 −60…0 dBFS peak level is validated and prepared on the controller. Live edits
 use a separate atomic latest-gain target and a 5 ms sample ramp. An independent

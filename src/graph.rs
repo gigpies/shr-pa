@@ -72,6 +72,8 @@ pub struct GraphConfig {
     pub inputs: Vec<Input>,
     pub nodes: Vec<Node>,
     pub outputs: Vec<Output>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_output: Option<usize>,
 }
 impl GraphConfig {
     pub fn stereo(splits_hz: Vec<f64>) -> Self {
@@ -93,6 +95,7 @@ impl GraphConfig {
             inputs: vec![Input::default(); 2],
             nodes: vec![],
             outputs,
+            feedback_output: None,
         }
     }
     pub fn validate(&self) -> Result<(), &'static str> {
@@ -127,7 +130,14 @@ impl GraphConfig {
             Source::Input(i) => i < self.inputs.len(),
             Source::Node(i) => i < count,
         };
-        let mut operations = self.inputs.len() * 40;
+        if self
+            .feedback_output
+            .is_some_and(|i| i >= self.outputs.len())
+        {
+            return Err("feedback output outside graph");
+        }
+        let mut operations =
+            self.inputs.len() * 40 + usize::from(self.feedback_output.is_some()) * 32;
         for (index, node) in self.nodes.iter().enumerate() {
             if node.routes.is_empty() {
                 return Err("empty sum node");
@@ -221,6 +231,7 @@ struct OutputState {
 /// State is owned by one worker, never concurrently queried or mutated.
 pub struct Graph {
     pub(crate) config: GraphConfig,
+    feedback: crate::feedback::Feedback,
     inputs: Vec<InputState>,
     outputs: Vec<OutputState>,
     values: Vec<f64>,
@@ -235,6 +246,9 @@ pub struct Graph {
 impl Graph {
     pub fn config(&self) -> &GraphConfig {
         &self.config
+    }
+    pub fn feedback_hz(&self) -> f64 {
+        self.feedback.hz
     }
     pub fn faulted(&self) -> bool {
         self.fault
@@ -318,6 +332,7 @@ impl Graph {
         }
         Ok(Self {
             values: vec![0.; config.inputs.len() + config.nodes.len()],
+            feedback: crate::feedback::Feedback::prepare(rate, config.feedback_output.is_some()),
             config,
             inputs,
             outputs,
@@ -349,6 +364,7 @@ impl Graph {
                 .iter()
                 .any(|o| vector(&o.splits_hz, span))
             || vector(&self.inputs, span)
+            || vector(&self.feedback.bank, span)
             || vector(&self.outputs, span)
             || vector(&self.values, span)
             || self
@@ -361,7 +377,8 @@ impl Graph {
     }
     /// Separate optional admission; legacy graph admission remains unchanged.
     pub fn live_eq_eligible(&self) -> bool {
-        let work = self.config.inputs.len() * 40
+        let work = usize::from(self.config.feedback_output.is_some()) * 32
+            + self.config.inputs.len() * 40
             + self
                 .config
                 .nodes
@@ -455,6 +472,7 @@ impl Graph {
         self.muted && self.ramp == 0.
     }
     pub fn mute(&mut self) {
+        self.feedback.reset_detection();
         self.muted = true;
     }
     pub fn rearm(&mut self) -> Result<(), &'static str> {
@@ -569,6 +587,11 @@ impl Graph {
                 }
                 if !y.is_finite() || y.abs() > 1e12 {
                     self.fault = true;
+                }
+                if self.config.feedback_output == Some(index) {
+                    y = self
+                        .feedback
+                        .tick(y, self.config.sample_rate, !self.muted && !c.muted);
                 }
                 let required = if y.abs() > state.ceiling {
                     state.ceiling / y.abs()

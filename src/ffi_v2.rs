@@ -374,3 +374,23 @@ pub unsafe extern "C" fn shr_pa_v2_destroy(handle: *mut ShrPaV2) {
         drop(unsafe { Box::from_raw(handle) });
     }
 }
+
+/// Extended status: words ten and eleven carry the feedback output (one-based)
+/// and applied center frequency. The original query retains its reserved zeros.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shr_pa_v2_feedback_status(
+    handle: *const ShrPaV2,
+    output: *mut ShrPaStatusV2,
+    version: u32,
+    size: u32,
+) -> i32 {
+    unsafe {
+        let code = shr_pa_v2_status(handle, output, version, size);
+        if code == OK {
+            let graph = &(*handle).graph;
+            (*output).reserved0 = graph.config().feedback_output.map_or(0, |i| i as u32 + 1);
+            (*output).reserved1 = graph.feedback_hz().round() as u32;
+        }
+        code
+    }
+}
