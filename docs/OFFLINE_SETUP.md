@@ -165,6 +165,12 @@ arrival disagreement refuses. Complex-average transfer and ensemble coherence
 `offline-sweep-ensemble-v1`, not the windowed H1 algorithm. Repeat coherence does
 not detect a repeatable nonlinearity, bad calibration, or common timing error.
 
+GigPies `GP-PA-MEASURE-CAPTURE:1` sessions produce this input: one `CaptureMeta`
+per session (`clock_domain` `stagebox-source`, `reference_tap` `excitation`), the
+owner `SweepSpec`, and repeat *n* starting at `first_frame + n × total_samples`.
+`tests/gigpies_capture.rs` checks byte-identical copies of that producer corpus
+against `sweep`, `sweep_repeated` and this generator. GigPies owns the contract.
+
 `C-PA-SWEEP-RESULT:1` retains `transfer`, `calibration`, `impulse`, and `reasons`.
 The `transfer` is accepted by the new offline owner operations; it must not be
 passed off as a GP20 v1 captured H1 record. GP20 continues to own live-source
